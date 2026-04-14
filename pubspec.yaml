@@ -1,0 +1,82 @@
+name: field_track_pro
+description: Professional Field Employee Tracking App with CRM
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  http: ^1.2.0
+
+  # Backend - Supabase
+  supabase_flutter: ^2.8.0
+
+  # Maps (FREE - OpenStreetMap)
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+
+  # Location & Geofencing
+  geolocator: ^14.0.2
+  geocoding: ^4.0.0
+
+  # Local Database (Offline Support)
+  hive_flutter: ^1.1.0
+  hive: ^2.2.3
+
+  # UI Components
+  google_fonts: ^8.0.2
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+  fl_chart: ^1.2.0
+  intl: ^0.20.2
+  photo_view: ^0.15.0
+
+  # Utilities
+  image_picker: ^1.1.2
+  path_provider: ^2.1.5
+  url_launcher: ^6.3.1
+  share_plus: ^12.0.2
+  permission_handler: ^12.0.1
+  uuid: ^4.5.1
+  timeago: ^3.7.0
+  connectivity_plus: ^7.1.1
+
+  # Icons
+  flutter_svg: ^2.0.16
+  cupertino_icons: ^1.0.8
+  flutter_background_service: ^5.0.5
+  flutter_local_notifications: ^21.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.13
+  riverpod_generator: 2.4.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
