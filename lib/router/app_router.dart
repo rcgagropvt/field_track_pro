@@ -21,6 +21,11 @@ import '../features/admin/screens/admin_dashboard_screen.dart';
 import '../features/admin/screens/admin_analytics_screen.dart';
 import '../features/admin/screens/visit_analytics_screen.dart';
 import '../features/admin/screens/admin_shell.dart';
+import '../features/catalog/screens/product_catalog_screen.dart';
+import '../features/orders/screens/order_booking_screen.dart';
+import '../features/orders/screens/order_history_screen.dart';
+import '../features/orders/screens/order_detail_screen.dart';
+import '../features/catalog/screens/manage_products_screen.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -42,6 +47,12 @@ class AppRouter {
   static const String about = '/about';
   static const String adminAnalytics = '/admin-analytics';
   static const String visitAnalytics = '/visit-analytics';
+
+  static const String productCatalog = '/product-catalog';
+  static const String orderBooking = '/order-booking';
+  static const String orderHistory = '/order-history';
+  static const String orderDetail = '/order-detail';
+  static const String manageProducts = '/manage-products';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -85,6 +96,21 @@ class AppRouter {
         return _slideRoute(const VisitAnalyticsScreen());
       case about:
         return _slideRoute(const AboutScreen());
+      case productCatalog:
+        return _slideRoute(const ProductCatalogScreen());
+      case orderBooking:
+        final args = settings.arguments as Map<String, dynamic>;
+        return _slideRoute(OrderBookingScreen(
+          party: args['party'],
+          visitId: args['visit_id'] as String?,
+        ));
+      case orderHistory:
+        return _slideRoute(const OrderHistoryScreen());
+      case orderDetail:
+        final args = settings.arguments as String;
+        return _slideRoute(OrderDetailScreen(orderId: args));
+      case manageProducts:
+        return _slideRoute(const ManageProductsScreen());
       default:
         return _fadeRoute(
           Scaffold(

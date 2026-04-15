@@ -253,6 +253,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         onTap: () =>
                             Navigator.pushNamed(context, AppRouter.reports),
                       ),
+                      const SizedBox(width: 12),
+                      QuickActionButton(
+                        icon: Icons.shopping_cart_rounded,
+                        label: 'Orders',
+                        color: AppColors.leadContacted,
+                        onTap: () => Navigator.pushNamed(
+                            context, AppRouter.orderHistory),
+                      ),
                     ],
                   ),
                 )

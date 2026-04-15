@@ -8,6 +8,7 @@ import 'assign_task_screen.dart';
 import 'admin_analytics_screen.dart';
 import 'visit_analytics_screen.dart';
 import 'admin_shell.dart';
+import 'admin_orders_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -505,15 +506,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           () => _nav(const EmployeeListScreen())),
       _A('Live Map', Icons.map, Colors.green,
           () => _nav(const LiveMapScreen())),
+      _A('Orders', Icons.shopping_cart, Colors.teal,
+          () => _nav(const AdminOrdersScreen())),
       _A('Expenses', Icons.check_circle, Colors.orange,
           () => _nav(const ExpenseApprovalScreen())),
       _A('Assign Task', Icons.assignment, Colors.purple,
           () => _nav(const AssignTaskScreen())),
-      _A('Analytics', Icons.bar_chart, Colors.indigo,
-          () => _nav(const AdminAnalyticsScreen())),
-      _A('Visits', Icons.store, Colors.teal,
+      _A('Visits', Icons.store, Colors.indigo,
           () => _nav(const VisitAnalyticsScreen())),
     ];
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

@@ -7,6 +7,7 @@ import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/services/location_service.dart';
+import '../../orders/screens/order_booking_screen.dart';
 
 class StartVisitScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -68,23 +69,31 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
 
       // Upload selfie
       final bytes = await selfie.readAsBytes();
-      final fileName = 'visits/${SupabaseService.userId}/${DateTime.now().millisecondsSinceEpoch}_checkin.jpg';
-      await SupabaseService.client.storage.from('uploads').uploadBinary(fileName, bytes);
-      final selfieUrl = SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
+      final fileName =
+          'visits/${SupabaseService.userId}/${DateTime.now().millisecondsSinceEpoch}_checkin.jpg';
+      await SupabaseService.client.storage
+          .from('uploads')
+          .uploadBinary(fileName, bytes);
+      final selfieUrl =
+          SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
 
       // Create visit record
-      final response = await SupabaseService.client.from('visits').insert({
-        'user_id': SupabaseService.userId,
-        'party_id': widget.party['id'],
-        'party_name': widget.party['name'],
-        'party_address': widget.party['address'],
-        'check_in_time': DateTime.now().toIso8601String(),
-        'check_in_lat': pos.latitude,
-        'check_in_lng': pos.longitude,
-        'check_in_selfie': selfieUrl,
-        'purpose': _purpose,
-        'status': 'in_progress',
-      }).select().single();
+      final response = await SupabaseService.client
+          .from('visits')
+          .insert({
+            'user_id': SupabaseService.userId,
+            'party_id': widget.party['id'],
+            'party_name': widget.party['name'],
+            'party_address': widget.party['address'],
+            'check_in_time': DateTime.now().toIso8601String(),
+            'check_in_lat': pos.latitude,
+            'check_in_lng': pos.longitude,
+            'check_in_selfie': selfieUrl,
+            'purpose': _purpose,
+            'status': 'in_progress',
+          })
+          .select()
+          .single();
 
       setState(() {
         _status = 'in_progress';
@@ -117,9 +126,13 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
 
     try {
       final bytes = await photo.readAsBytes();
-      final fileName = 'visits/${SupabaseService.userId}/${DateTime.now().millisecondsSinceEpoch}_proof.jpg';
-      await SupabaseService.client.storage.from('uploads').uploadBinary(fileName, bytes);
-      final url = SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
+      final fileName =
+          'visits/${SupabaseService.userId}/${DateTime.now().millisecondsSinceEpoch}_proof.jpg';
+      await SupabaseService.client.storage
+          .from('uploads')
+          .uploadBinary(fileName, bytes);
+      final url =
+          SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
       setState(() => _photoUrls.add(url));
       _showSnack('Photo added');
     } catch (e) {
@@ -146,9 +159,14 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
       String? checkOutSelfie;
       if (selfie != null) {
         final bytes = await selfie.readAsBytes();
-        final fileName = 'visits/${SupabaseService.userId}/${DateTime.now().millisecondsSinceEpoch}_checkout.jpg';
-        await SupabaseService.client.storage.from('uploads').uploadBinary(fileName, bytes);
-        checkOutSelfie = SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
+        final fileName =
+            'visits/${SupabaseService.userId}/${DateTime.now().millisecondsSinceEpoch}_checkout.jpg';
+        await SupabaseService.client.storage
+            .from('uploads')
+            .uploadBinary(fileName, bytes);
+        checkOutSelfie = SupabaseService.client.storage
+            .from('uploads')
+            .getPublicUrl(fileName);
       }
 
       await SupabaseService.client.from('visits').update({
@@ -231,7 +249,9 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                   Text(
                     _formatDuration(_durationSeconds),
                     style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.error),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.error),
                   ),
                 ],
               ),
@@ -255,20 +275,28 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(widget.party['name'] ?? '',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.white)),
+                      style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.white)),
                   if (widget.party['contact_person'] != null)
                     Text(widget.party['contact_person'],
-                        style: TextStyle(color: AppColors.white.withOpacity(0.8))),
+                        style:
+                            TextStyle(color: AppColors.white.withOpacity(0.8))),
                   if (widget.party['address'] != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Row(
                         children: [
-                          Icon(Icons.location_on, size: 14, color: AppColors.white.withOpacity(0.7)),
+                          Icon(Icons.location_on,
+                              size: 14,
+                              color: AppColors.white.withOpacity(0.7)),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(widget.party['address'],
-                                style: TextStyle(fontSize: 12, color: AppColors.white.withOpacity(0.7))),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.white.withOpacity(0.7))),
                           ),
                         ],
                       ),
@@ -278,10 +306,14 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                       padding: const EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
-                          Icon(Icons.phone, size: 14, color: AppColors.white.withOpacity(0.7)),
+                          Icon(Icons.phone,
+                              size: 14,
+                              color: AppColors.white.withOpacity(0.7)),
                           const SizedBox(width: 4),
                           Text(widget.party['phone'],
-                              style: TextStyle(fontSize: 12, color: AppColors.white.withOpacity(0.7))),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.white.withOpacity(0.7))),
                         ],
                       ),
                     ),
@@ -294,11 +326,20 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
             // ── NOT STARTED: Show Start button ──
             if (_status == 'not_started') ...[
               // Purpose selector
-              const Text('Visit Purpose', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text('Visit Purpose',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
-                spacing: 8, runSpacing: 8,
-                children: ['sales', 'collection', 'delivery', 'complaint', 'follow_up', 'new_introduction'].map((p) {
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  'sales',
+                  'collection',
+                  'delivery',
+                  'complaint',
+                  'follow_up',
+                  'new_introduction'
+                ].map((p) {
                   final selected = _purpose == p;
                   return ChoiceChip(
                     label: Text(p.replaceAll('_', ' ').toUpperCase()),
@@ -307,8 +348,9 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                     selectedColor: AppColors.primary,
                     backgroundColor: AppColors.primarySurface,
                     labelStyle: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600,
-                      color: selected ? AppColors.white : AppColors.primary),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: selected ? AppColors.white : AppColors.primary),
                     side: BorderSide.none,
                   );
                 }).toList(),
@@ -362,12 +404,15 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Checked In',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.success)),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.success)),
                           Text(
                             _checkInTime != null
                                 ? DateFormat('hh:mm a').format(_checkInTime!)
                                 : '',
-                            style: const TextStyle(fontSize: 12, color: AppColors.success),
+                            style: const TextStyle(
+                                fontSize: 12, color: AppColors.success),
                           ),
                         ],
                       ),
@@ -379,7 +424,8 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
               const SizedBox(height: 20),
 
               // Discussion Notes
-              const Text('Discussion Notes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text('Discussion Notes',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               CustomTextField(
                 controller: _notesCtrl,
@@ -389,30 +435,67 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
 
               const SizedBox(height: 16),
 
-              // Order Value
-              const Text('Order Details', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              // Order Booking
+              const Text('Order',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
-                    child: CustomTextField(
-                      controller: _orderValueCtrl,
-                      label: 'Order Value',
-                      prefixIcon: Icons.shopping_cart_rounded,
-                      keyboardType: TextInputType.number,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final result =
+                            await Navigator.push<Map<String, dynamic>>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => OrderBookingScreen(
+                              party: widget.party,
+                              visitId: _visitId,
+                            ),
+                          ),
+                        );
+                        if (result != null && mounted) {
+                          setState(() {
+                            _orderValueCtrl.text =
+                                result['total'].toStringAsFixed(2);
+                          });
+                          _showSnack('Order ${result['order_number']} placed!');
+                        }
+                      },
+                      icon: const Icon(Icons.shopping_cart_rounded, size: 18),
+                      label: const Text('Book Order'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: CustomTextField(
-                      controller: _paymentCtrl,
-                      label: 'Payment Collected',
-                      prefixIcon: Icons.payments_rounded,
+                      controller: _orderValueCtrl,
+                      label: 'Order Value (₹)',
+                      prefixIcon: Icons.currency_rupee_rounded,
                       keyboardType: TextInputType.number,
+                      readOnly: true,
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+
+              // Payment collected manually
+              CustomTextField(
+                controller: _paymentCtrl,
+                label: 'Payment Collected (₹)',
+                prefixIcon: Icons.payments_rounded,
+                keyboardType: TextInputType.number,
+              ),
+
               const SizedBox(height: 12),
 
               // Payment mode
@@ -422,34 +505,44 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                   labelText: 'Payment Mode',
                   prefixIcon: Icon(Icons.account_balance_wallet, size: 20),
                 ),
-                items: ['none', 'cash', 'upi', 'cheque', 'online', 'credit'].map((m) => DropdownMenuItem(
-                  value: m, child: Text(m.toUpperCase(), style: const TextStyle(fontSize: 14)),
-                )).toList(),
+                items: ['none', 'cash', 'upi', 'cheque', 'online', 'credit']
+                    .map((m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(m.toUpperCase(),
+                              style: const TextStyle(fontSize: 14)),
+                        ))
+                    .toList(),
                 onChanged: (v) => setState(() => _paymentMode = v!),
               ),
 
               const SizedBox(height: 16),
 
               // Photo proof
-              const Text('Photo Proof', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text('Photo Proof',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
-                spacing: 10, runSpacing: 10,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   ..._photoUrls.map((url) => ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(url, width: 70, height: 70, fit: BoxFit.cover),
-                  )),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(url,
+                            width: 70, height: 70, fit: BoxFit.cover),
+                      )),
                   GestureDetector(
                     onTap: _takePhoto,
                     child: Container(
-                      width: 70, height: 70,
+                      width: 70,
+                      height: 70,
                       decoration: BoxDecoration(
                         color: AppColors.primarySurface,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.primary, style: BorderStyle.solid),
+                        border: Border.all(
+                            color: AppColors.primary, style: BorderStyle.solid),
                       ),
-                      child: const Icon(Icons.add_a_photo_rounded, color: AppColors.primary),
+                      child: const Icon(Icons.add_a_photo_rounded,
+                          color: AppColors.primary),
                     ),
                   ),
                 ],
@@ -468,11 +561,18 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
               const SizedBox(height: 16),
 
               // Outcome
-              const Text('Visit Outcome', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text('Visit Outcome',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
-                spacing: 8, runSpacing: 8,
-                children: ['successful', 'follow_up_needed', 'not_interested', 'shop_closed'].map((o) {
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  'successful',
+                  'follow_up_needed',
+                  'not_interested',
+                  'shop_closed'
+                ].map((o) {
                   final selected = _outcome == o;
                   return ChoiceChip(
                     label: Text(o.replaceAll('_', ' ').toUpperCase()),
@@ -481,8 +581,9 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                     selectedColor: AppColors.primary,
                     backgroundColor: AppColors.primarySurface,
                     labelStyle: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w600,
-                      color: selected ? AppColors.white : AppColors.primary),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: selected ? AppColors.white : AppColors.primary),
                     side: BorderSide.none,
                   );
                 }).toList(),
@@ -491,7 +592,8 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
               const SizedBox(height: 16),
 
               // Rating
-              const Text('Rate This Visit', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text('Rate This Visit',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Row(
                 children: List.generate(5, (i) {
@@ -500,8 +602,11 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                     child: Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: Icon(
-                        i < _rating ? Icons.star_rounded : Icons.star_border_rounded,
-                        color: AppColors.warning, size: 36,
+                        i < _rating
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        color: AppColors.warning,
+                        size: 36,
                       ),
                     ),
                   );
@@ -531,10 +636,14 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                 ),
                 child: const Column(
                   children: [
-                    Icon(Icons.check_circle_rounded, size: 48, color: AppColors.success),
+                    Icon(Icons.check_circle_rounded,
+                        size: 48, color: AppColors.success),
                     SizedBox(height: 12),
                     Text('Visit Completed!',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.success)),
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.success)),
                   ],
                 ),
               ),

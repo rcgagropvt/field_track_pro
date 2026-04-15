@@ -10,6 +10,8 @@ import '../../expenses/screens/expenses_screen.dart';
 import '../../reports/screens/reports_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../../router/app_router.dart';
+import '../../orders/screens/order_history_screen.dart';
+import '../../catalog/screens/product_catalog_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -143,6 +145,21 @@ class _MainShellState extends State<MainShell> {
               Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const CRMScreen()));
             }),
+            _drawerItem(Icons.inventory_2_rounded, 'Product Catalog', () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ProductCatalogScreen()));
+            }),
+            _drawerItem(Icons.receipt_long_rounded, 'Orders', () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const OrderHistoryScreen()));
+            }),
+
             _drawerItem(Icons.bar_chart_rounded, 'Reports', () {
               Navigator.pop(context);
               Navigator.push(context,

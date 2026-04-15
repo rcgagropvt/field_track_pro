@@ -11,11 +11,12 @@ import 'create_employee_screen.dart';
 import 'admin_profile_screen.dart';
 import 'admin_settings_screen.dart';
 import 'about_screen.dart';
+import '../../catalog/screens/manage_products_screen.dart';
+import 'admin_orders_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
 
-  // ✅ Static key accessible from anywhere
   static final GlobalKey<ScaffoldState> scaffoldKey =
       GlobalKey<ScaffoldState>();
 
@@ -26,21 +27,21 @@ class AdminShell extends StatefulWidget {
 class _AdminShellState extends State<AdminShell> {
   int _currentIndex = 0;
   Map<String, dynamic> _adminProfile = {};
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // All screens indexed — drawer taps set _currentIndex
   final List<Widget> _screens = const [
-    AdminDashboardScreen(),
-    EmployeeListScreen(),
-    LiveMapScreen(),
-    VisitAnalyticsScreen(),
-    ExpenseApprovalScreen(),
-    AdminAnalyticsScreen(),
-    AssignTaskScreen(),
-    CreateEmployeeScreen(),
-    AdminProfileScreen(),
-    AdminSettingsScreen(),
-    AboutScreen(),
+    AdminDashboardScreen(), // 0
+    EmployeeListScreen(), // 1
+    LiveMapScreen(), // 2
+    VisitAnalyticsScreen(), // 3
+    ExpenseApprovalScreen(), // 4
+    AdminAnalyticsScreen(), // 5
+    AssignTaskScreen(), // 6
+    ManageProductsScreen(), // 7
+    CreateEmployeeScreen(), // 8
+    AdminProfileScreen(), // 9
+    AdminSettingsScreen(), // 10
+    AboutScreen(), // 11
+    AdminOrdersScreen(), // 12  ← NEW
   ];
 
   @override
@@ -62,13 +63,13 @@ class _AdminShellState extends State<AdminShell> {
 
   void _navigate(int index) {
     setState(() => _currentIndex = index);
-    Navigator.pop(context); // close drawer
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: AdminShell.scaffoldKey, // ✅ use static key
+      key: AdminShell.scaffoldKey,
       drawer: _buildDrawer(),
       body: IndexedStack(index: _currentIndex, children: _screens),
     );
@@ -87,7 +88,7 @@ class _AdminShellState extends State<AdminShell> {
           children: [
             // Profile header
             GestureDetector(
-              onTap: () => _navigate(8),
+              onTap: () => _navigate(9),
               child: Container(
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(16),
@@ -167,6 +168,7 @@ class _AdminShellState extends State<AdminShell> {
                     label: 'Finance',
                     color: Colors.green,
                     children: [
+                      _subItem(Icons.shopping_cart, 'All Orders', 12),
                       _subItem(
                           Icons.check_circle_outline, 'Expense Approvals', 4),
                       _subItem(Icons.analytics, 'Analytics Report', 5),
@@ -179,9 +181,10 @@ class _AdminShellState extends State<AdminShell> {
                     label: 'HR Management',
                     color: Colors.purple,
                     children: [
-                      _subItem(Icons.person_add, 'Create Employee', 7),
+                      _subItem(Icons.person_add, 'Create Employee', 8),
                       _subItem(Icons.people_alt, 'Manage Employees', 1),
                       _subItem(Icons.assignment, 'Assign Task', 6),
+                      _subItem(Icons.inventory_2, 'Manage Products', 7),
                     ],
                   ),
 
@@ -191,13 +194,13 @@ class _AdminShellState extends State<AdminShell> {
                     label: 'Account',
                     color: Colors.teal,
                     children: [
-                      _subItem(Icons.manage_accounts, 'My Profile', 8),
-                      _subItem(Icons.settings, 'Settings', 9),
+                      _subItem(Icons.manage_accounts, 'My Profile', 9),
+                      _subItem(Icons.settings, 'Settings', 10),
                     ],
                   ),
 
                   const SizedBox(height: 8),
-                  _navItem(Icons.info_outline, 'About', 10),
+                  _navItem(Icons.info_outline, 'About', 11),
                   const Divider(color: Colors.white12, height: 24),
 
                   // Sign out
@@ -211,8 +214,9 @@ class _AdminShellState extends State<AdminShell> {
                     onTap: () async {
                       Navigator.pop(context);
                       await SupabaseService.client.auth.signOut();
-                      if (mounted)
+                      if (mounted) {
                         Navigator.pushReplacementNamed(context, '/login');
+                      }
                     },
                   ),
                   const SizedBox(height: 16),
