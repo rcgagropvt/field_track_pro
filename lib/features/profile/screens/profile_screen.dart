@@ -140,11 +140,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _menuItem(Icons.bar_chart_rounded, 'Reports', () {
                     Navigator.pushNamed(context, AppRouter.reports);
                   }),
-                  _menuItem(
-                      Icons.notifications_outlined, 'Notifications', () {}),
-                  _menuItem(
-                      Icons.help_outline_rounded, 'Help & Support', () {}),
-                  _menuItem(Icons.info_outline_rounded, 'About', () {}),
+                  _menuItem(Icons.notifications_outlined, 'Notifications', () {
+                    Navigator.pushNamed(context, AppRouter.notifications);
+                  }),
+                  _menuItem(Icons.help_outline_rounded, 'Help & Support', () {
+                    Navigator.pushNamed(context, AppRouter.helpSupport);
+                  }),
+                  _menuItem(Icons.info_outline_rounded, 'About', () {
+                    Navigator.pushNamed(context, AppRouter.about);
+                  }),
 
                   const SizedBox(height: 16),
 

@@ -297,9 +297,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600)),
                                       Text(
-                                        v['date'] != null
+                                        v['check_in_time'] != null
                                             ? DateFormat('dd MMM').format(
-                                                DateTime.parse(v['date']))
+                                                DateTime.parse(
+                                                    v['check_in_time']))
                                             : '',
                                         style: const TextStyle(
                                             fontSize: 11,

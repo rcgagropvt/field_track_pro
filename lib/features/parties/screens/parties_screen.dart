@@ -29,9 +29,15 @@ class _PartiesScreenState extends State<PartiesScreen> {
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
+      final uid = SupabaseService.userId;
+      if (uid == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
       final data = await SupabaseService.client
           .from('parties')
           .select()
+          .eq('user_id', uid)
           .eq('is_active', true)
           .order('name');
       if (mounted) {

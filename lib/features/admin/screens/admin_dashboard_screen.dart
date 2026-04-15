@@ -161,7 +161,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               icon: const Icon(Icons.analytics_outlined),
               tooltip: 'Full Analytics',
               onPressed: () => _nav(const AdminAnalyticsScreen())),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadStats),
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'logout') {
