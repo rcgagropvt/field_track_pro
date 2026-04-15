@@ -12,6 +12,8 @@ import '../../profile/screens/profile_screen.dart';
 import '../../../router/app_router.dart';
 import '../../orders/screens/order_history_screen.dart';
 import '../../catalog/screens/product_catalog_screen.dart';
+import '../../beats/screens/beat_plan_screen.dart';
+import '../../targets/screens/target_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -134,6 +136,17 @@ class _MainShellState extends State<MainShell> {
             ),
 
             const SizedBox(height: 8),
+            _drawerItem(Icons.track_changes, 'My Targets', () {
+              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const TargetScreen()));
+            }),
+
+            _drawerItem(Icons.route, 'Beat Plan', () {
+              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const BeatPlanScreen()));
+            }),
 
             _drawerItem(Icons.receipt_long_rounded, 'Expenses', () {
               Navigator.pop(context);

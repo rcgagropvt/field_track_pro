@@ -9,6 +9,7 @@ import 'admin_analytics_screen.dart';
 import 'visit_analytics_screen.dart';
 import 'admin_shell.dart';
 import 'admin_orders_screen.dart';
+import '../../beats/screens/beat_list_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -28,12 +29,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     // ✅ Small delay ensures widget is fully mounted before loading
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadStats());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
-  Future<void> _loadStats() async {
+  Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _loading = true);
+
+    // Step 1: Load KPIs (always works)
     try {
       final stats = await SupabaseService.getAdminDashboardStats();
       if (mounted) {
@@ -41,38 +44,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _stats = Map<String, dynamic>.from(stats);
           _loading = false;
         });
-        print('STATS LOADED: $_stats');
       }
     } catch (e) {
-      print('Error loading stats: $e');
+      debugPrint('KPI load error: $e');
       if (mounted) setState(() => _loading = false);
     }
-  }
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
+    // Step 2: Load charts separately (won't break KPIs if RPCs missing)
     try {
-      final results = await Future.wait<dynamic>([
-        SupabaseService.getAdminDashboardStats(),
-        SupabaseService.client.rpc('get_daily_visit_counts'),
-        SupabaseService.client.rpc('get_lead_pipeline'),
-        SupabaseService.client.rpc('get_employee_performance'),
-      ]);
-
-      final stats = results[0] as Map<String, dynamic>;
-      final daily = List<Map<String, dynamic>>.from(results[1] as List);
-      final pipeline = List<Map<String, dynamic>>.from(results[2] as List);
-      final perf = List<Map<String, dynamic>>.from(results[3] as List);
-      setState(() {
-        _stats = stats;
-        _dailyVisits = daily;
-        _leadPipeline = pipeline;
-        _topPerformers = perf.take(5).toList();
-        _aiInsights = _buildInsights(stats, perf, daily);
-        _loading = false;
-      });
+      final daily =
+          await SupabaseService.client.rpc('get_daily_visit_counts') as List? ??
+              [];
+      if (mounted)
+        setState(() => _dailyVisits = List<Map<String, dynamic>>.from(daily));
     } catch (e) {
-      setState(() => _loading = false);
+      debugPrint('Daily visits RPC missing: $e');
+    }
+
+    try {
+      final pipeline =
+          await SupabaseService.client.rpc('get_lead_pipeline') as List? ?? [];
+      if (mounted)
+        setState(
+            () => _leadPipeline = List<Map<String, dynamic>>.from(pipeline));
+    } catch (e) {
+      debugPrint('Lead pipeline RPC missing: $e');
+    }
+
+    try {
+      final perf = await SupabaseService.client.rpc('get_employee_performance')
+              as List? ??
+          [];
+      if (mounted)
+        setState(() {
+          _topPerformers =
+              List<Map<String, dynamic>>.from(perf).take(5).toList();
+          _aiInsights = _buildInsights(_stats, perf, _dailyVisits);
+        });
+    } catch (e) {
+      debugPrint('Performance RPC missing: $e');
     }
   }
 
@@ -162,7 +172,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               icon: const Icon(Icons.analytics_outlined),
               tooltip: 'Full Analytics',
               onPressed: () => _nav(const AdminAnalyticsScreen())),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadStats),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'logout') {
@@ -185,7 +195,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: () async => await _loadStats(), // ✅ async wrapper
+              onRefresh: () async => await _loadData(), // ✅ async wrapper
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
@@ -514,6 +524,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           () => _nav(const AssignTaskScreen())),
       _A('Visits', Icons.store, Colors.indigo,
           () => _nav(const VisitAnalyticsScreen())),
+      _A('Beat Plans', Icons.route, Colors.deepPurple,
+          () => _nav(const BeatListScreen())),
     ];
 
     return GridView.builder(

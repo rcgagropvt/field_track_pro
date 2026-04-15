@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../catalog/screens/product_catalog_screen.dart';
+import '../../../core/services/whatsapp_service.dart';
 
 class OrderBookingScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -25,8 +26,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
   final _notesCtrl = TextEditingController();
   bool _isSubmitting = false;
 
-  double get _subtotal => _cartItems.fold(
-      0, (sum, item) => sum + (item['line_total'] as double));
+  double get _subtotal =>
+      _cartItems.fold(0, (sum, item) => sum + (item['line_total'] as double));
 
   double get _taxAmount => _cartItems.fold(
       0,
@@ -51,7 +52,6 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
 
     if (product == null) return;
 
-    // Check if already in cart
     final existingIdx =
         _cartItems.indexWhere((i) => i['product_id'] == product['id']);
     if (existingIdx >= 0) {
@@ -118,7 +118,6 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // 1. Create order
       final orderData = {
         'user_id': SupabaseService.userId,
         'party_id': widget.party['id'],
@@ -142,7 +141,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
         'amount_paid': 0,
         'status': 'placed',
         'notes': _notesCtrl.text.trim(),
-        'order_number': '', // trigger will auto-generate
+        'order_number': '',
       };
 
       final orderResult = await SupabaseService.client
@@ -151,10 +150,9 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
           .select('id, order_number')
           .single();
 
-      final orderId = orderResult['id'];
-      final orderNumber = orderResult['order_number'];
+      final orderId = orderResult['id'] as String;
+      final orderNumber = orderResult['order_number'] as String;
 
-      // 2. Insert order items
       final items = _cartItems
           .map((item) => {
                 'order_id': orderId,
@@ -172,12 +170,38 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
 
       await SupabaseService.client.from('order_items').insert(items);
 
-      // 3. Update visit order_value if linked to a visit
-      if (widget.visitId != null) {
+      if (widget.party['phone'] != null) {
+        await WhatsAppService.sendOrderConfirmation(
+          phone: widget.party['phone'].toString(),
+          partyName: widget.party['name'] ?? 'Customer',
+          total: _totalAmount,
+          orderId: orderId,
+        );
+      }
+
+      if (widget.visitId != null && !widget.visitId!.startsWith('offline_')) {
         await SupabaseService.client.from('visits').update({
           'order_value': _totalAmount,
           'updated_at': DateTime.now().toIso8601String(),
         }).eq('id', widget.visitId!);
+      }
+
+      final phone = widget.party['phone'] as String?;
+      if (phone != null && phone.isNotEmpty) {
+        SupabaseService.client.functions.invoke(
+          'whatsapp-notify',
+          body: {
+            'type': 'order_created',
+            'data': {
+              'phone': phone.replaceAll(RegExp(r'[^0-9]'), ''),
+              'party_name': widget.party['name'] ?? 'Customer',
+              'total': _totalAmount.toStringAsFixed(0),
+              'order_id': orderNumber,
+            },
+          },
+        ).catchError((e) {
+          debugPrint('WhatsApp notify failed: $e');
+        });
       }
 
       if (mounted) {
@@ -242,7 +266,6 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       ),
       body: Column(
         children: [
-          // Party info
           Container(
             width: double.infinity,
             margin: const EdgeInsets.all(16),
@@ -285,8 +308,6 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               ],
             ),
           ).animate().fadeIn(duration: 300.ms),
-
-          // Cart items
           Expanded(
             child: _cartItems.isEmpty
                 ? Center(
@@ -316,16 +337,11 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                     ),
                   )
                 : ListView.builder(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: _cartItems.length,
-                    itemBuilder: (context, index) {
-                      return _buildCartItem(index);
-                    },
+                    itemBuilder: (context, index) => _buildCartItem(index),
                   ),
           ),
-
-          // Bottom summary + submit
           if (_cartItems.isNotEmpty) _buildBottomBar(),
         ],
       ),
@@ -357,7 +373,6 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Row(
             children: [
               Expanded(
@@ -388,13 +403,9 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
-          // Quantity + Discount + Total
           Row(
             children: [
-              // Quantity
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: AppColors.divider),
@@ -403,7 +414,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _qtyButton(Icons.remove, () => _updateQuantity(index, qty - 1)),
+                    _qtyButton(
+                        Icons.remove, () => _updateQuantity(index, qty - 1)),
                     Container(
                       width: 44,
                       alignment: Alignment.center,
@@ -416,13 +428,12 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                         ),
                       ),
                     ),
-                    _qtyButton(Icons.add, () => _updateQuantity(index, qty + 1)),
+                    _qtyButton(
+                        Icons.add, () => _updateQuantity(index, qty + 1)),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
-
-              // Discount
               SizedBox(
                 width: 70,
                 height: 36,
@@ -445,10 +456,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                   },
                 ),
               ),
-
               const Spacer(),
-
-              // Line total
               Text(
                 '₹${lineTotal.toStringAsFixed(2)}',
                 style: const TextStyle(
@@ -461,7 +469,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
           ),
         ],
       ),
-    ).animate(delay: Duration(milliseconds: index * 50))
+    )
+        .animate(delay: Duration(milliseconds: index * 50))
         .fadeIn(duration: 200.ms)
         .slideX(begin: 0.03);
   }
@@ -494,12 +503,11 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Payment mode
             Row(
               children: [
                 const Text('Payment:',
-                    style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: SingleChildScrollView(
@@ -536,26 +544,20 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
-            // Notes
             TextField(
               controller: _notesCtrl,
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Order notes (optional)',
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // Summary
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -575,10 +577,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // Submit
             CustomButton(
               text: 'Place Order  •  ₹${_totalAmount.toStringAsFixed(0)}',
               onPressed: _submitOrder,
@@ -601,9 +600,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
-                color: isBold
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                color: isBold ? AppColors.textPrimary : AppColors.textSecondary,
               )),
           Text(value,
               style: TextStyle(

@@ -3,28 +3,38 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/theme/app_theme.dart';
 import 'router/app_router.dart';
 import 'core/services/tracking_service.dart';
+import 'core/services/offline_queue_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive for local storage
   await Hive.initFlutter();
   await Hive.openBox('settings');
   await Hive.openBox('offline_queue');
 
-  // Initialize Supabase
   await Supabase.initialize(
-    // ⚠️ REPLACE THESE WITH YOUR SUPABASE CREDENTIALS
     url: 'https://wruxzfvpnhzihmboggyu.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndydXh6ZnZwbmh6aWhtYm9nZ3l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NjQ1NTQsImV4cCI6MjA5MTA0MDU1NH0.PZQEJTgm_kTFcZLUAyIlqkwIFApOc4FXkPBua4F-tbE',
   );
-  await TrackingService.initialize(); // ← ONLY NEW LINE
 
-  // Set system UI
+  await TrackingService.initialize();
+
+  Connectivity().onConnectivityChanged.listen((result) async {
+    if (result != ConnectivityResult.none) {
+      final pending = await OfflineQueueService.pendingCount();
+      if (pending > 0) {
+        debugPrint('Connection restored — syncing $pending offline records...');
+        final r = await OfflineQueueService.sync();
+        debugPrint('Sync complete: ${r.synced} synced, ${r.failed} failed');
+      }
+    }
+  });
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -32,9 +42,7 @@ void main() async {
     ),
   );
 
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   runApp(const ProviderScope(child: FieldTrackProApp()));
 }

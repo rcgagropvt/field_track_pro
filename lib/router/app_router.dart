@@ -26,6 +26,9 @@ import '../features/orders/screens/order_booking_screen.dart';
 import '../features/orders/screens/order_history_screen.dart';
 import '../features/orders/screens/order_detail_screen.dart';
 import '../features/catalog/screens/manage_products_screen.dart';
+import '../features/beats/screens/beat_plan_screen.dart';
+import '../features/beats/screens/beat_list_screen.dart';
+import '../features/beats/screens/create_beat_screen.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -53,6 +56,9 @@ class AppRouter {
   static const String orderHistory = '/order-history';
   static const String orderDetail = '/order-detail';
   static const String manageProducts = '/manage-products';
+  static const String beatPlan = '/beat-plan';
+  static const String beatList = '/beat-list';
+  static const String createBeat = '/create-beat';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -111,6 +117,12 @@ class AppRouter {
         return _slideRoute(OrderDetailScreen(orderId: args));
       case manageProducts:
         return _slideRoute(const ManageProductsScreen());
+      case beatPlan:
+        return _slideRoute(const BeatPlanScreen());
+      case beatList:
+        return _slideRoute(const BeatListScreen());
+      case createBeat:
+        return _slideRoute(const CreateBeatScreen());
       default:
         return _fadeRoute(
           Scaffold(

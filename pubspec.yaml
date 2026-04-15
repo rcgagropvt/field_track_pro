@@ -29,7 +29,8 @@ dependencies:
   # Local Database (Offline Support)
   hive_flutter: ^1.1.0
   hive: ^2.2.3
-
+  sqflite: ^2.3.3          # Sprint 3D offline queue
+  path: ^1.9.0             # Sprint 3D
   # UI Components
   google_fonts: ^8.0.2
   flutter_animate: ^4.5.0

@@ -425,27 +425,34 @@ class SupabaseService {
   static Future<Map<String, dynamic>> getAdminDashboardStats() async {
     try {
       final today = DateTime.now().toIso8601String().substring(0, 10);
+      final todayStart = '${today}T00:00:00.000';
+      final todayEnd = '${today}T23:59:59.999';
 
-      final employees = await client.from('profiles').select('id, role');
+      final results = await Future.wait<dynamic>([
+        client.from('profiles').select('id, role').eq('is_active', true),
+        client
+            .from('attendance')
+            .select('id')
+            .eq('date', today)
+            .eq('status', 'present'),
+        client
+            .from('visits')
+            .select('id')
+            .gte('check_in_time', todayStart)
+            .lte('check_in_time', todayEnd),
+        client.from('expenses').select('id').eq('status', 'pending'),
+        client.from('leads').select('id'),
+      ]);
 
-      print('ALL PROFILES: $employees'); // ← paste this output
-
-      final nonAdmins =
-          (employees as List).where((e) => e['role'] != 'admin').toList();
-
-      print('NON-ADMIN COUNT: ${nonAdmins.length}');
-
-      final expenses =
-          await client.from('expenses').select('id').eq('status', 'pending');
-
-      final leads = await client.from('leads').select('id');
+      final allProfiles = results[0] as List;
+      final nonAdmins = allProfiles.where((e) => e['role'] != 'admin').toList();
 
       return {
         'total_employees': nonAdmins.length,
-        'checked_in_today': 0,
-        'total_visits_today': 0,
-        'pending_expenses': (expenses as List).length,
-        'total_leads': (leads as List).length,
+        'checked_in_today': (results[1] as List).length,
+        'total_visits_today': (results[2] as List).length,
+        'pending_expenses': (results[3] as List).length,
+        'total_leads': (results[4] as List).length,
         'active_trackers': 0,
       };
     } catch (e) {

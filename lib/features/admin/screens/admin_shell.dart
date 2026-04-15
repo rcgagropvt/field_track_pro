@@ -13,6 +13,9 @@ import 'admin_settings_screen.dart';
 import 'about_screen.dart';
 import '../../catalog/screens/manage_products_screen.dart';
 import 'admin_orders_screen.dart';
+import '../../beats/screens/beat_list_screen.dart';
+import '../../targets/screens/admin_targets_screen.dart';
+import '../../targets/screens/set_targets_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -42,6 +45,8 @@ class _AdminShellState extends State<AdminShell> {
     AdminSettingsScreen(), // 10
     AboutScreen(), // 11
     AdminOrdersScreen(), // 12  ← NEW
+    BeatListScreen(),
+    AdminTargetsScreen(),
   ];
 
   @override
@@ -159,6 +164,7 @@ class _AdminShellState extends State<AdminShell> {
                       _subItem(Icons.people, 'All Employees', 1),
                       _subItem(Icons.map, 'Live Map', 2),
                       _subItem(Icons.store, 'Visit Analytics', 3),
+                      _subItem(Icons.route, 'Beat Plans', 13),
                     ],
                   ),
 
@@ -185,6 +191,7 @@ class _AdminShellState extends State<AdminShell> {
                       _subItem(Icons.people_alt, 'Manage Employees', 1),
                       _subItem(Icons.assignment, 'Assign Task', 6),
                       _subItem(Icons.inventory_2, 'Manage Products', 7),
+                      _subItem(Icons.track_changes, 'Set Targets', 14),
                     ],
                   ),
 
