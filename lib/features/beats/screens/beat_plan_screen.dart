@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/supabase_service.dart';
 import '../../../../core/services/location_service.dart';
-import '../../visits/screens/start_visit_screen.dart';
+import '../../parties/screens/party_action_sheet.dart';
 
 class BeatPlanScreen extends StatefulWidget {
   const BeatPlanScreen({super.key});
@@ -55,7 +55,8 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
       // Get stops in sequence with party details
       final stops = await SupabaseService.client
           .from('beat_stops')
-          .select('*, parties(id, name, address, city, phone, latitude, longitude, type)')
+          .select(
+              '*, parties(id, name, address, city, phone, latitude, longitude, type)')
           .eq('beat_id', _beat!['id'])
           .order('sequence');
 
@@ -67,7 +68,8 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
           .eq('user_id', uid)
           .gte('check_in_time', '${todayStr}T00:00:00.000');
 
-      final visitedIds = (visits as List).map((v) => v['party_id'].toString()).toSet();
+      final visitedIds =
+          (visits as List).map((v) => v['party_id'].toString()).toSet();
 
       // Get current position
       final pos = await LocationService.getCurrentPosition();
@@ -114,7 +116,8 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Beat Plan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text('Beat Plan',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             Text(_beat?['name'] ?? 'No beat assigned today',
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ],
@@ -159,10 +162,12 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(children: [
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('Beat Adherence: ${pct.toStringAsFixed(0)}%',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
               Text('$visited / $total stops visited',
                   style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ]),
@@ -173,7 +178,11 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
                 value: pct / 100,
                 backgroundColor: Colors.grey.shade200,
                 valueColor: AlwaysStoppedAnimation(
-                  pct >= 80 ? Colors.green : pct >= 50 ? Colors.orange : Colors.red,
+                  pct >= 80
+                      ? Colors.green
+                      : pct >= 50
+                          ? Colors.orange
+                          : Colors.red,
                 ),
                 minHeight: 8,
               ),
@@ -229,7 +238,9 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
                   ? const Icon(Icons.check, color: Colors.white, size: 18)
                   : Text('${_stops[i]['sequence']}',
                       style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
             ),
           ),
         ),
@@ -239,9 +250,10 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
     // Route polyline
     final points = _stops
         .where((s) =>
-            s['parties']['latitude'] != null && s['parties']['longitude'] != null)
-        .map((s) => LatLng(
-            s['parties']['latitude'] as double, s['parties']['longitude'] as double))
+            s['parties']['latitude'] != null &&
+            s['parties']['longitude'] != null)
+        .map((s) => LatLng(s['parties']['latitude'] as double,
+            s['parties']['longitude'] as double))
         .toList();
 
     return FlutterMap(
@@ -275,9 +287,12 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
       child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Today\'s Stops', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            Text('${_stops.length} total', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          child:
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Today\'s Stops',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            Text('${_stops.length} total',
+                style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ]),
         ),
         Expanded(
@@ -334,14 +349,21 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: isVisited ? Colors.green : isCurrent ? AppColors.primary : Colors.grey.shade300,
+                color: isVisited
+                    ? Colors.green
+                    : isCurrent
+                        ? AppColors.primary
+                        : Colors.grey.shade300,
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: isVisited
                     ? const Icon(Icons.check, size: 12, color: Colors.white)
                     : Text('${stop['sequence']}',
-                        style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold)),
               ),
             ),
             const Spacer(),
@@ -352,22 +374,36 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text('NEXT', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text('NEXT',
+                    style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold)),
               ),
           ]),
           const SizedBox(height: 6),
-          Text(party['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text(party['name'] ?? '',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text(party['city'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          Text(party['city'] ?? '',
+              style: const TextStyle(color: Colors.grey, fontSize: 11)),
           const Spacer(),
           if (isVisited)
-            const Text('✓ Visited', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w600))
+            const Text('✓ Visited',
+                style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600))
           else
             GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => StartVisitScreen(party: party)));
-              },
+              onTap: () => showPartyActionSheet(
+                context,
+                party: party,
+                isAdmin: false,
+                onActionCompleted: _load,
+              ),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
@@ -375,7 +411,11 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Center(
-                  child: Text('Start Visit', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: Text('Start Visit',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
@@ -389,59 +429,81 @@ class _BeatPlanScreenState extends State<BeatPlanScreen> {
     final isVisited = _visitedPartyIds.contains(party['id'].toString());
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text('Stop #${stop['sequence']}', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-            ),
-            const Spacer(),
-            if (isVisited)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                child: const Text('Visited ✓', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-              ),
-          ]),
-          const SizedBox(height: 12),
-          Text(party['name'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(party['address'] ?? '', style: const TextStyle(color: Colors.grey)),
-          Text(party['city'] ?? '', style: const TextStyle(color: Colors.grey)),
-          if (party['phone'] != null) ...[
-            const SizedBox(height: 4),
-            Text('📞 ${party['phone']}', style: const TextStyle(fontSize: 13)),
-          ],
-          const SizedBox(height: 16),
-          if (!isVisited)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Start Visit'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text('Stop #${stop['sequence']}',
+                      style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold)),
                 ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => StartVisitScreen(party: party)));
-                },
-              ),
-            ),
-        ]),
+                const Spacer(),
+                if (isVisited)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20)),
+                    child: const Text('Visited ✓',
+                        style: TextStyle(
+                            color: Colors.green, fontWeight: FontWeight.bold)),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+              Text(party['name'] ?? '',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(party['address'] ?? '',
+                  style: const TextStyle(color: Colors.grey)),
+              Text(party['city'] ?? '',
+                  style: const TextStyle(color: Colors.grey)),
+              if (party['phone'] != null) ...[
+                const SizedBox(height: 4),
+                Text('📞 ${party['phone']}',
+                    style: const TextStyle(fontSize: 13)),
+              ],
+              const SizedBox(height: 16),
+              if (!isVisited)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Start Visit'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context); // close this detail sheet first
+                      showPartyActionSheet(
+                        context,
+                        party: party,
+                        isAdmin: false,
+                        onActionCompleted: _load,
+                      );
+                    },
+                  ),
+                ),
+            ]),
       ),
     );
   }
 }
-
-

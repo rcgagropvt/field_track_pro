@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/empty_state.dart';
 import 'add_party_screen.dart';
-import '../../visits/screens/start_visit_screen.dart';
-import 'party_profile_screen.dart';
+import 'party_action_sheet.dart'; // ← NEW (replaces direct PartyProfileScreen push)
 
 class PartiesScreen extends StatefulWidget {
   const PartiesScreen({super.key});
@@ -137,7 +136,7 @@ class _PartiesScreenState extends State<PartiesScreen> {
                 'distributor',
                 'retailer',
                 'wholesaler',
-                'customer'
+                'customer',
               ].map((type) {
                 final isSelected = _typeFilter == type;
                 return Padding(
@@ -147,8 +146,7 @@ class _PartiesScreenState extends State<PartiesScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color:
-                              isSelected ? AppColors.white : AppColors.primary,
+                          color: isSelected ? AppColors.white : AppColors.primary,
                         )),
                     selected: isSelected,
                     onSelected: (_) {
@@ -167,7 +165,7 @@ class _PartiesScreenState extends State<PartiesScreen> {
             ),
           ),
 
-          // List
+          // Party List
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -240,8 +238,8 @@ class _PartiesScreenState extends State<PartiesScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color:
-                                            AppColors.accent.withOpacity(0.1),
+                                        color: AppColors.accent
+                                            .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -256,16 +254,14 @@ class _PartiesScreenState extends State<PartiesScreen> {
                                     ),
                                   ],
                                 ),
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => PartyProfileScreen(
-                                          party: party, isAdmin: false),
-                                    ),
-                                  );
-                                  _load();
-                                },
+                                // ── CHANGED: was Navigator.push → PartyProfileScreen
+                                // Now opens the action sheet with Start Visit / View Profile / Call
+                                onTap: () => showPartyActionSheet(
+                                  context,
+                                  party: party,
+                                  isAdmin: false,
+                                  onActionCompleted: _load,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -283,68 +279,5 @@ class _PartiesScreenState extends State<PartiesScreen> {
       ),
     );
   }
-
-  void _showVisitOption(Map<String, dynamic> party) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-            const SizedBox(height: 20),
-            Text(party['name'] ?? '',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(party['address'] ?? 'No address',
-                style: const TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StartVisitScreen(party: party),
-                      ));
-                },
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Start Visit'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  // Call dealer
-                  if (party['phone'] != null) {
-                    // url_launcher call
-                  }
-                },
-                icon: const Icon(Icons.phone_rounded),
-                label: const Text('Call'),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
+  // _showVisitOption removed — replaced by party_action_sheet.dart
 }
-
