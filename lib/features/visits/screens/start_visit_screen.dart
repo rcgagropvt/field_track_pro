@@ -6,12 +6,15 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/sync_status_banner.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/offline_queue_service.dart';
-import '../../orders/screens/order_booking_screen.dart';
 import '../../../core/services/whatsapp_service.dart';
 import '../../../core/services/geofence_service.dart';
+import '../../../router/app_router.dart';
+import '../../orders/screens/order_booking_screen.dart';
+
 
 class StartVisitScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -20,6 +23,7 @@ class StartVisitScreen extends StatefulWidget {
   @override
   State<StartVisitScreen> createState() => _StartVisitScreenState();
 }
+
 
 class _StartVisitScreenState extends State<StartVisitScreen> {
   String _status = 'not_started';
@@ -43,9 +47,15 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
   bool _isLoading = false;
   bool _isOffline = false;
 
+  // FIX: connectivity_plus v5 emits List<ConnectivityResult>
   Future<bool> _checkConnectivity() async {
-    final result = await Connectivity().checkConnectivity();
-    final offline = result == ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    final bool offline;
+    if (results is List) {
+      offline = !(results as List).any((r) => r != ConnectivityResult.none);
+    } else {
+      offline = results == ConnectivityResult.none;
+    }
     if (mounted) setState(() => _isOffline = offline);
     return !offline;
   }
@@ -61,7 +71,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
         return;
       }
 
-      // ── Geofence check ──────────────────────────────
+      // Geofence check
       final geoResult = await GeofenceService.validateCheckIn(
         userLat: pos.latitude,
         userLng: pos.longitude,
@@ -107,7 +117,8 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 child: const Text('Check In Anyway'),
               ),
             ],
@@ -119,7 +130,6 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
           return;
         }
       }
-      // ── End geofence check ──────────────────────────
 
       final selfie = await _picker.pickImage(
         source: ImageSource.camera,
@@ -179,8 +189,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
         await OfflineQueueService.queueInsert('visits', visitData);
         setState(() =>
             _visitId = 'offline_${DateTime.now().millisecondsSinceEpoch}');
-        _showSnack('Started offline — will sync when connected',
-            isError: false);
+        _showSnack('Started offline — will sync when connected');
       }
 
       setState(() {
@@ -219,8 +228,9 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
       await SupabaseService.client.storage
           .from('uploads')
           .uploadBinary(fileName, bytes);
-      final url =
-          SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
+      final url = SupabaseService.client.storage
+          .from('uploads')
+          .getPublicUrl(fileName);
       setState(() => _photoUrls.add(url));
       _showSnack('Photo added');
     } catch (e) {
@@ -277,14 +287,28 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      if (isOnline && !_visitId!.startsWith('offline_')) {
-        await SupabaseService.client
-            .from('visits')
-            .update(updateData)
-            .eq('id', _visitId!);
-      } else if (!isOnline) {
+      // FIX: if check-in was offline and we're now online, insert the merged record
+      if (isOnline) {
+        if (_visitId!.startsWith('offline_')) {
+          await SupabaseService.client.from('visits').insert({
+            'user_id': SupabaseService.userId,
+            'party_id': widget.party['id'],
+            'party_name': widget.party['name'],
+            'party_address': widget.party['address'],
+            'purpose': _purpose,
+            ...updateData,
+          });
+        } else {
+          await SupabaseService.client
+              .from('visits')
+              .update(updateData)
+              .eq('id', _visitId!);
+        }
+      } else {
+        await OfflineQueueService.queueUpdate('visits', _visitId!, updateData);
         _showSnack('Saved offline — will sync when connected');
       }
+
       if (widget.party['phone'] != null) {
         await WhatsAppService.sendVisitSummary(
           phone: widget.party['phone'].toString(),
@@ -340,9 +364,10 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
           if (_isOffline)
             Container(
               margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.15),
+                color: Colors.orange.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
@@ -355,9 +380,10 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
           if (_status == 'in_progress')
             Container(
               margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
+                color: AppColors.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -377,341 +403,432 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: AppColors.cardGradient,
-                borderRadius: BorderRadius.circular(16),
-              ),
+      body: Column(
+        children: [
+          const SyncStatusBanner(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.party['name'] ?? '',
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.white)),
-                  if (widget.party['contact_person'] != null)
-                    Text(widget.party['contact_person'],
-                        style:
-                            TextStyle(color: AppColors.white.withOpacity(0.8))),
-                  if (widget.party['address'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(children: [
-                        Icon(Icons.location_on,
-                            size: 14, color: AppColors.white.withOpacity(0.7)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(widget.party['address'],
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.white.withOpacity(0.7))),
-                        ),
-                      ]),
+                  // Party info card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.cardGradient,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  if (widget.party['phone'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(children: [
-                        Icon(Icons.phone,
-                            size: 14, color: AppColors.white.withOpacity(0.7)),
-                        const SizedBox(width: 4),
-                        Text(widget.party['phone'],
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.white.withOpacity(0.7))),
-                      ]),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_status == 'not_started') ...[
-              const Text('Visit Purpose',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  'sales',
-                  'collection',
-                  'delivery',
-                  'complaint',
-                  'follow_up',
-                  'new_introduction'
-                ].map((p) {
-                  final selected = _purpose == p;
-                  return ChoiceChip(
-                    label: Text(p.replaceAll('_', ' ').toUpperCase()),
-                    selected: selected,
-                    onSelected: (_) => setState(() => _purpose = p),
-                    selectedColor: AppColors.primary,
-                    backgroundColor: AppColors.primarySurface,
-                    labelStyle: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: selected ? AppColors.white : AppColors.primary),
-                    side: BorderSide.none,
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.infoLight,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(children: [
-                  Icon(Icons.info_outline, color: AppColors.info, size: 20),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'You will need to take a selfie and allow GPS access to start this visit.',
-                      style: TextStyle(fontSize: 13, color: AppColors.info),
-                    ),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 20),
-              CustomButton(
-                text: 'Start Visit (Selfie + GPS)',
-                onPressed: _startVisit,
-                isLoading: _isLoading,
-                icon: Icons.play_arrow_rounded,
-              ),
-            ],
-            if (_status == 'in_progress') ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.successLight,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.check_circle, color: AppColors.success),
-                  const SizedBox(width: 10),
-                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Checked In',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.success)),
-                        Text(
-                          _checkInTime != null
-                              ? DateFormat('hh:mm a').format(_checkInTime!)
-                              : '',
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.success),
-                        ),
+                        Text(widget.party['name'] ?? '',
+                            style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.white)),
+                        if (widget.party['contact_person'] != null)
+                          Text(widget.party['contact_person'],
+                              style: TextStyle(
+                                  color:
+                                      AppColors.white.withValues(alpha: 0.8))),
+                        if (widget.party['address'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(children: [
+                              Icon(Icons.location_on,
+                                  size: 14,
+                                  color:
+                                      AppColors.white.withValues(alpha: 0.7)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(widget.party['address'],
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.white
+                                            .withValues(alpha: 0.7))),
+                              ),
+                            ]),
+                          ),
+                        if (widget.party['phone'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(children: [
+                              Icon(Icons.phone,
+                                  size: 14,
+                                  color:
+                                      AppColors.white.withValues(alpha: 0.7)),
+                              const SizedBox(width: 4),
+                              Text(widget.party['phone'],
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.white
+                                          .withValues(alpha: 0.7))),
+                            ]),
+                          ),
                       ],
                     ),
                   ),
-                ]),
-              ),
-              const SizedBox(height: 20),
-              const Text('Discussion Notes',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              CustomTextField(
-                controller: _notesCtrl,
-                hint: 'What was discussed with the dealer...',
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              const Text('Order',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push<Map<String, dynamic>>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => OrderBookingScreen(
-                            party: widget.party,
-                            visitId: _visitId,
+                  const SizedBox(height: 24),
+
+                  // ── NOT STARTED ────────────────────────────────────────
+                  if (_status == 'not_started') ...[
+                    const Text('Visit Purpose',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'sales',
+                        'collection',
+                        'delivery',
+                        'complaint',
+                        'follow_up',
+                        'new_introduction',
+                      ].map((p) {
+                        final selected = _purpose == p;
+                        return ChoiceChip(
+                          label: Text(
+                              p.replaceAll('_', ' ').toUpperCase()),
+                          selected: selected,
+                          onSelected: (_) =>
+                              setState(() => _purpose = p),
+                          selectedColor: AppColors.primary,
+                          backgroundColor: AppColors.primarySurface,
+                          labelStyle: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AppColors.white
+                                  : AppColors.primary),
+                          side: BorderSide.none,
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.infoLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.info_outline,
+                            color: AppColors.info, size: 20),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'You will need to take a selfie and allow GPS access to start this visit.',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.info),
                           ),
                         ),
-                      );
-                      if (result != null && mounted) {
-                        setState(() => _orderValueCtrl.text =
-                            result['total'].toStringAsFixed(2));
-                        _showSnack('Order ${result['order_number']} placed!');
-                      }
-                    },
-                    icon: const Icon(Icons.shopping_cart_rounded, size: 18),
-                    label: const Text('Book Order'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                      ]),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CustomTextField(
-                    controller: _orderValueCtrl,
-                    label: 'Order Value (₹)',
-                    prefixIcon: Icons.currency_rupee_rounded,
-                    keyboardType: TextInputType.number,
-                    readOnly: true,
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 12),
-              CustomTextField(
-                controller: _paymentCtrl,
-                label: 'Payment Collected (₹)',
-                prefixIcon: Icons.payments_rounded,
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _paymentMode,
-                decoration: const InputDecoration(
-                  labelText: 'Payment Mode',
-                  prefixIcon: Icon(Icons.account_balance_wallet, size: 20),
-                ),
-                items: ['none', 'cash', 'upi', 'cheque', 'online', 'credit']
-                    .map((m) => DropdownMenuItem(
-                          value: m,
-                          child: Text(m.toUpperCase(),
-                              style: const TextStyle(fontSize: 14)),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _paymentMode = v!),
-              ),
-              const SizedBox(height: 16),
-              const Text('Photo Proof',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  ..._photoUrls.map((url) => ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(url,
-                            width: 70, height: 70, fit: BoxFit.cover),
-                      )),
-                  GestureDetector(
-                    onTap: _takePhoto,
-                    child: Container(
-                      width: 70,
-                      height: 70,
+                    const SizedBox(height: 20),
+                    CustomButton(
+                      text: 'Start Visit (Selfie + GPS)',
+                      onPressed: _startVisit,
+                      isLoading: _isLoading,
+                      icon: Icons.play_arrow_rounded,
+                    ),
+                  ],
+
+                  // ── IN PROGRESS ────────────────────────────────────────
+                  if (_status == 'in_progress') ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppColors.primarySurface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.primary),
+                        color: AppColors.successLight,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.add_a_photo_rounded,
-                          color: AppColors.primary),
+                      child: Row(children: [
+                        const Icon(Icons.check_circle,
+                            color: AppColors.success),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Checked In',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.success)),
+                              Text(
+                                _checkInTime != null
+                                    ? DateFormat('hh:mm a')
+                                        .format(_checkInTime!)
+                                    : '',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.success),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]),
                     ),
-                  ),
+                    const SizedBox(height: 20),
+
+                    const Text('Discussion Notes',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    CustomTextField(
+                      controller: _notesCtrl,
+                      hint: 'What was discussed with the dealer...',
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text('Order',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final result =
+                                await Navigator.push<Map<String, dynamic>>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => OrderBookingScreen(
+                                  party: widget.party,
+                                  visitId: _visitId,
+                                ),
+                              ),
+                            );
+                            if (result != null && mounted) {
+                              setState(() => _orderValueCtrl.text =
+                                  result['total'].toStringAsFixed(2));
+                              _showSnack(
+                                  'Order ${result['order_number']} placed!');
+                            }
+                          },
+                          icon: const Icon(Icons.shopping_cart_rounded,
+                              size: 18),
+                          label: const Text('Book Order'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomTextField(
+                          controller: _orderValueCtrl,
+                          label: 'Order Value (₹)',
+                          prefixIcon: Icons.currency_rupee_rounded,
+                          keyboardType: TextInputType.number,
+                          readOnly: true,
+                        ),
+                      ),
+                    ]),
+
+                    // Stock Check button (Sprint 7)
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRouter.stockCheck,
+                          arguments: {
+                            'party': widget.party,
+                            'visit_id': _visitId,
+                          },
+                        ),
+                        icon: const Icon(Icons.inventory_2_rounded, size: 18),
+                        label: const Text('Record Stock Check'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+                    CustomTextField(
+                      controller: _paymentCtrl,
+                      label: 'Payment Collected (₹)',
+                      prefixIcon: Icons.payments_rounded,
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _paymentMode,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Mode',
+                        prefixIcon:
+                            Icon(Icons.account_balance_wallet, size: 20),
+                      ),
+                      items: [
+                        'none',
+                        'cash',
+                        'upi',
+                        'cheque',
+                        'online',
+                        'credit',
+                      ]
+                          .map((m) => DropdownMenuItem(
+                                value: m,
+                                child: Text(m.toUpperCase(),
+                                    style:
+                                        const TextStyle(fontSize: 14)),
+                              ))
+                          .toList(),
+                      onChanged: (v) =>
+                          setState(() => _paymentMode = v!),
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text('Photo Proof',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        ..._photoUrls.map((url) => ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(url,
+                                  width: 70,
+                                  height: 70,
+                                  fit: BoxFit.cover),
+                            )),
+                        GestureDetector(
+                          onTap: _takePhoto,
+                          child: Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySurface,
+                              borderRadius: BorderRadius.circular(10),
+                              border:
+                                  Border.all(color: AppColors.primary),
+                            ),
+                            child: const Icon(Icons.add_a_photo_rounded,
+                                color: AppColors.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    CustomTextField(
+                      controller: _feedbackCtrl,
+                      label: 'Dealer Feedback / Complaints',
+                      hint: 'Any feedback or complaints...',
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text('Visit Outcome',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'successful',
+                        'follow_up_needed',
+                        'not_interested',
+                        'shop_closed',
+                      ].map((o) {
+                        final selected = _outcome == o;
+                        return ChoiceChip(
+                          label: Text(
+                              o.replaceAll('_', ' ').toUpperCase()),
+                          selected: selected,
+                          onSelected: (_) =>
+                              setState(() => _outcome = o),
+                          selectedColor: AppColors.primary,
+                          backgroundColor: AppColors.primarySurface,
+                          labelStyle: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? AppColors.white
+                                  : AppColors.primary),
+                          side: BorderSide.none,
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text('Rate This Visit',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: List.generate(5, (i) {
+                        return GestureDetector(
+                          onTap: () =>
+                              setState(() => _rating = i + 1),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Icon(
+                              i < _rating
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: AppColors.warning,
+                              size: 36,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 24),
+
+                    CustomButton(
+                      text: 'End Visit (Selfie + GPS)',
+                      onPressed: _endVisit,
+                      isLoading: _isLoading,
+                      icon: Icons.stop_rounded,
+                      color: AppColors.error,
+                    ),
+                  ],
+
+                  // ── COMPLETED ──────────────────────────────────────────
+                  if (_status == 'completed') ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppColors.successLight,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Column(children: [
+                        Icon(Icons.check_circle_rounded,
+                            size: 48, color: AppColors.success),
+                        SizedBox(height: 12),
+                        Text('Visit Completed!',
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.success)),
+                      ]),
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _feedbackCtrl,
-                label: 'Dealer Feedback / Complaints',
-                hint: 'Any feedback or complaints...',
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              const Text('Visit Outcome',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  'successful',
-                  'follow_up_needed',
-                  'not_interested',
-                  'shop_closed'
-                ].map((o) {
-                  final selected = _outcome == o;
-                  return ChoiceChip(
-                    label: Text(o.replaceAll('_', ' ').toUpperCase()),
-                    selected: selected,
-                    onSelected: (_) => setState(() => _outcome = o),
-                    selectedColor: AppColors.primary,
-                    backgroundColor: AppColors.primarySurface,
-                    labelStyle: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: selected ? AppColors.white : AppColors.primary),
-                    side: BorderSide.none,
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              const Text('Rate This Visit',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Row(
-                children: List.generate(5, (i) {
-                  return GestureDetector(
-                    onTap: () => setState(() => _rating = i + 1),
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Icon(
-                        i < _rating
-                            ? Icons.star_rounded
-                            : Icons.star_border_rounded,
-                        color: AppColors.warning,
-                        size: 36,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 24),
-              CustomButton(
-                text: 'End Visit (Selfie + GPS)',
-                onPressed: _endVisit,
-                isLoading: _isLoading,
-                icon: Icons.stop_rounded,
-                color: AppColors.error,
-              ),
-            ],
-            if (_status == 'completed') ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.successLight,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Column(children: [
-                  Icon(Icons.check_circle_rounded,
-                      size: 48, color: AppColors.success),
-                  SizedBox(height: 12),
-                  Text('Visit Completed!',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.success)),
-                ]),
-              ),
-            ],
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

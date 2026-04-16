@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/sync_status_banner.dart';
+import '../../../core/widgets/vartmaan_logo.dart';
+import '../../../router/app_router.dart';
 import 'dashboard_screen.dart';
 import '../../parties/screens/parties_screen.dart';
 import '../../tracking/screens/tracking_screen.dart';
-import '../../crm/screens/crm_screen.dart';
 import '../../tasks/screens/tasks_screen.dart';
 import '../../visits/screens/visit_history_screen.dart';
 import '../../expenses/screens/expenses_screen.dart';
 import '../../reports/screens/reports_screen.dart';
-import '../../profile/screens/profile_screen.dart';
-import '../../../router/app_router.dart';
 import '../../orders/screens/order_history_screen.dart';
 import '../../catalog/screens/product_catalog_screen.dart';
 import '../../beats/screens/beat_plan_screen.dart';
 import '../../targets/screens/target_screen.dart';
-import '../../collections/screens/outstanding_screen.dart'; // ← ADD THIS
-import '../../../core/widgets/vartmaan_logo.dart';
+import '../../collections/screens/outstanding_screen.dart';
 import '../../collections/screens/aging_analysis_screen.dart';
-import '../../collections/screens/party_ledger_screen.dart';
+import '../../crm/screens/crm_screen.dart';
+
+
+// NOTE: PartyLedgerScreen requires a partyId argument — navigate to it
+// from PartiesScreen or OutstandingScreen as a drill-down, not from
+// the global drawer. It is NOT imported here.
+
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -25,6 +30,7 @@ class MainShell extends StatefulWidget {
   @override
   State<MainShell> createState() => _MainShellState();
 }
+
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
@@ -40,17 +46,24 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
-
-      // Drawer for extra features
+      body: Column(
+        children: [
+          const SyncStatusBanner(),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+          ),
+        ],
+      ),
       drawer: _buildDrawer(),
-
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -58,14 +71,16 @@ class _MainShellState extends State<MainShell> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, Icons.dashboard_rounded, 'Home'),
                 _buildNavItem(1, Icons.store_rounded, 'Parties'),
                 _buildNavItem(2, Icons.location_on_rounded, 'Track'),
-                _buildNavItem(3, Icons.assignment_turned_in_rounded, 'Visits'),
+                _buildNavItem(
+                    3, Icons.assignment_turned_in_rounded, 'Visits'),
                 _buildNavItem(4, Icons.task_alt_rounded, 'Tasks'),
               ],
             ),
@@ -87,14 +102,17 @@ class _MainShellState extends State<MainShell> {
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primarySurface : Colors.transparent,
+          color:
+              isSelected ? AppColors.primarySurface : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
             Icon(icon,
                 size: 22,
-                color: isSelected ? AppColors.primary : AppColors.textTertiary),
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.textTertiary),
             if (isSelected) ...[
               const SizedBox(width: 6),
               Text(label,
@@ -115,102 +133,146 @@ class _MainShellState extends State<MainShell> {
       child: SafeArea(
         child: Column(
           children: [
-            // Drawer Header
+            // Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
-              decoration:
-                  const BoxDecoration(gradient: AppColors.primaryGradient),
-              child: Column(
+              decoration: const BoxDecoration(
+                  gradient: AppColors.primaryGradient),
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const VartmaanLogo(size: 44, color: Colors.white),
-                  const SizedBox(height: 12),
-                  const VartmaanWordmark(
+                  VartmaanLogo(size: 44, color: Colors.white),
+                  SizedBox(height: 12),
+                  VartmaanWordmark(
                     size: 32,
                     color: Colors.white,
                     textColor: Colors.white,
                   ),
-                  const SizedBox(height: 4),
-                  const Text('Field Sales Platform',
-                      style: TextStyle(fontSize: 12, color: Colors.white60)),
+                  SizedBox(height: 4),
+                  Text('Field Sales Platform',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.white60)),
                 ],
               ),
             ),
 
             const SizedBox(height: 8),
-            _drawerItem(Icons.track_changes, 'My Targets', () {
-              Navigator.pop(context);
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const TargetScreen()));
-            }),
 
-            _drawerItem(Icons.payments_outlined, 'Outstanding', () {
-              Navigator.pop(context);
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const OutstandingScreen()));
-            }),
-
-            _drawerItem(Icons.route, 'Beat Plan', () {
-              Navigator.pop(context);
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const BeatPlanScreen()));
-            }),
-
-            _drawerItem(Icons.receipt_long_rounded, 'Expenses', () {
-              Navigator.pop(context);
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ExpensesScreen()));
-            }),
-            _drawerItem(Icons.people_alt_rounded, 'CRM / Leads', () {
-              Navigator.pop(context);
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const CRMScreen()));
-            }),
-            _drawerItem(Icons.inventory_2_rounded, 'Product Catalog', () {
-              Navigator.pop(context);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ProductCatalogScreen()));
-            }),
-            _drawerItem(Icons.receipt_long_rounded, 'Orders', () {
-              Navigator.pop(context);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const OrderHistoryScreen()));
-            }),
-
-            _drawerItem(Icons.bar_chart_rounded, 'Reports', () {
-              Navigator.pop(context);
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ReportsScreen()));
-            }),
-            _drawerItem(Icons.event_available_rounded, 'Attendance History',
-                () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, AppRouter.attendanceHistory);
-            }),
-
-            const Divider(),
-
-            _drawerItem(Icons.person_outline, 'Profile', () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, AppRouter.profile);
-            }),
-            _drawerItem(Icons.settings_outlined, 'Settings', () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, AppRouter.settings); // was empty
-            }),
-
-            const Spacer(),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _drawerItem(Icons.track_changes, 'My Targets', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const TargetScreen()));
+                  }),
+                  _drawerItem(
+                      Icons.payments_outlined, 'Outstanding', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const OutstandingScreen()));
+                  }),
+                  _drawerItem(
+                      Icons.analytics_outlined, 'Aging Analysis', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const AgingAnalysisScreen()));
+                  }),
+                  // Party Ledger is party-specific — accessible from
+                  // Parties screen > party profile > ledger tab.
+                  _drawerItem(
+                      Icons.inventory_2_outlined, 'Distributor Stock',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(
+                        context, AppRouter.distributorStock);
+                  }),
+                  _drawerItem(Icons.route, 'Beat Plan', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const BeatPlanScreen()));
+                  }),
+                  _drawerItem(
+                      Icons.receipt_long_rounded, 'Expenses', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ExpensesScreen()));
+                  }),
+                  _drawerItem(
+                      Icons.people_alt_rounded, 'CRM / Leads', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const CRMScreen()));
+                  }),
+                  _drawerItem(
+                      Icons.inventory_2_rounded, 'Product Catalog',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const ProductCatalogScreen()));
+                  }),
+                  _drawerItem(
+                      Icons.receipt_long_rounded, 'Orders', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const OrderHistoryScreen()));
+                  }),
+                  _drawerItem(Icons.bar_chart_rounded, 'Reports', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ReportsScreen()));
+                  }),
+                  _drawerItem(Icons.event_available_rounded,
+                      'Attendance History', () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(
+                        context, AppRouter.attendanceHistory);
+                  }),
+                  const Divider(),
+                  _drawerItem(Icons.person_outline, 'Profile', () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRouter.profile);
+                  }),
+                  _drawerItem(Icons.settings_outlined, 'Settings',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRouter.settings);
+                  }),
+                ],
+              ),
+            ),
 
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('FieldTrack Pro v1.0.0',
-                  style:
-                      TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+              child: Text(
+                'Vartmaan Pulse v1.0.0',
+                style: TextStyle(
+                    fontSize: 12, color: AppColors.textTertiary),
+              ),
             ),
           ],
         ),
@@ -218,7 +280,8 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _drawerItem(IconData icon, String label, VoidCallback onTap) {
+  Widget _drawerItem(
+      IconData icon, String label, VoidCallback onTap) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
@@ -229,12 +292,11 @@ class _MainShellState extends State<MainShell> {
         child: Icon(icon, color: AppColors.primary, size: 20),
       ),
       title: Text(label,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+          style: const TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w500)),
       trailing: const Icon(Icons.chevron_right_rounded,
           color: AppColors.textTertiary, size: 20),
       onTap: onTap,
     );
   }
 }
-
-

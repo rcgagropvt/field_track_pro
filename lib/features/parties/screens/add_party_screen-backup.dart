@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/services/supabase_service.dart';
-import '../../../core/services/offline_queue_service.dart';
 import '../../../core/services/location_service.dart';
 
 class AddPartyScreen extends StatefulWidget {
@@ -28,23 +25,6 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
   bool _isLoading = false;
   bool _useCurrentLocation = false;
   double? _lat, _lng;
-  bool _isOffline = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkConnectivity();
-    Connectivity().onConnectivityChanged.listen((result) {
-      if (mounted) {
-        setState(() => _isOffline = result == ConnectivityResult.none);
-      }
-    });
-  }
-
-  Future<void> _checkConnectivity() async {
-    final result = await Connectivity().checkConnectivity();
-    if (mounted) setState(() => _isOffline = result == ConnectivityResult.none);
-  }
 
   Future<void> _captureLocation() async {
     final pos = await LocationService.getCurrentPosition();
@@ -61,59 +41,39 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    final partyData = {
-      'user_id': SupabaseService.userId,
-      'name': _nameCtrl.text.trim(),
-      'type': _type,
-      'contact_person': _contactCtrl.text.trim(),
-      'phone': _phoneCtrl.text.trim(),
-      'email': _emailCtrl.text.trim(),
-      'address': _addressCtrl.text.trim(),
-      'city': _cityCtrl.text.trim(),
-      'latitude': _lat,
-      'longitude': _lng,
-      'is_active': true,
-      'credit_limit': double.tryParse(_creditLimitCtrl.text) ?? 0,
-    };
-
     try {
-      if (_isOffline) {
-        // Assign a local UUID so order booking can reference it immediately
-        final localId = const Uuid().v4();
-        await OfflineQueueService.queueInsert('parties', {
-          ...partyData,
-          'id': localId,
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: const Text('Party saved offline — will sync when connected'),
-            backgroundColor: Colors.orange.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ));
-          Navigator.pop(context, {'offline': true, 'id': localId, ...partyData});
-        }
-      } else {
-        await SupabaseService.client.from('parties').insert(partyData);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      await SupabaseService.client.from('parties').insert({
+        'user_id': SupabaseService.userId,
+        'name': _nameCtrl.text.trim(),
+        'type': _type,
+        'contact_person': _contactCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+        'address': _addressCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'latitude': _lat,
+        'longitude': _lng,
+        'is_active': true,
+        'credit_limit': double.tryParse(_creditLimitCtrl.text) ?? 0,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
             content: const Text('Party added successfully!'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ));
-          Navigator.pop(context);
-        }
+          ),
+        );
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error: \$e'), backgroundColor: AppColors.error),
+              content: Text('Error: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -141,24 +101,6 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
         leading: IconButton(
             icon: const Icon(Icons.close_rounded),
             onPressed: () => Navigator.pop(context)),
-        actions: [
-          if (_isOffline)
-            Container(
-              margin: const EdgeInsets.only(right: 12),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.cloud_off, size: 14, color: Colors.orange),
-                SizedBox(width: 4),
-                Text('Offline',
-                    style: TextStyle(color: Colors.orange, fontSize: 12)),
-              ]),
-            ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -167,31 +109,9 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_isOffline)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: Colors.orange.withValues(alpha: 0.3)),
-                  ),
-                  child: const Row(children: [
-                    Icon(Icons.cloud_off, size: 16, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'You are offline. Party will be saved locally and synced automatically.',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.orange),
-                      ),
-                    ),
-                  ]),
-                ),
+              // Type selector
               const Text('Party Type',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -200,7 +120,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                   'distributor',
                   'retailer',
                   'wholesaler',
-                  'customer',
+                  'customer'
                 ].map((t) {
                   final isSelected = _type == t;
                   return ChoiceChip(
@@ -212,21 +132,19 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                     labelStyle: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: isSelected
-                          ? AppColors.white
-                          : AppColors.primary,
+                      color: isSelected ? AppColors.white : AppColors.primary,
                     ),
                     side: BorderSide.none,
                   );
                 }).toList(),
               ),
+
               const SizedBox(height: 20),
               CustomTextField(
                 controller: _nameCtrl,
                 label: 'Business Name *',
                 prefixIcon: Icons.store_rounded,
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Required' : null,
+                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               CustomTextField(
@@ -268,7 +186,9 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                 prefixIcon: Icons.credit_card_outlined,
                 keyboardType: TextInputType.number,
               ),
+
               const SizedBox(height: 16),
+              // GPS Location Capture
               GestureDetector(
                 onTap: _captureLocation,
                 child: Container(
@@ -284,40 +204,43 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                           : AppColors.divider,
                     ),
                   ),
-                  child: Row(children: [
-                    Icon(
-                      _useCurrentLocation
-                          ? Icons.check_circle
-                          : Icons.my_location,
-                      color: _useCurrentLocation
-                          ? AppColors.success
-                          : AppColors.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
+                  child: Row(
+                    children: [
+                      Icon(
                         _useCurrentLocation
-                            ? 'Location captured (\${_lat!.toStringAsFixed(4)}, \${_lng!.toStringAsFixed(4)})'
-                            : 'Tap to capture current GPS location',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: _useCurrentLocation
-                              ? AppColors.success
-                              : AppColors.textSecondary,
+                            ? Icons.check_circle
+                            : Icons.my_location,
+                        color: _useCurrentLocation
+                            ? AppColors.success
+                            : AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _useCurrentLocation
+                              ? 'Location captured (${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)})'
+                              : 'Tap to capture current GPS location',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: _useCurrentLocation
+                                ? AppColors.success
+                                : AppColors.textSecondary,
+                          ),
                         ),
                       ),
-                    ),
-                  ]),
+                    ],
+                  ),
                 ),
               ),
+
               const SizedBox(height: 32),
               CustomButton(
-                text: _isOffline ? 'Save Party Offline' : 'Save Party',
+                text: 'Save Party',
                 onPressed: _save,
                 isLoading: _isLoading,
-                icon: _isOffline ? Icons.save_alt_rounded : Icons.save_rounded,
+                icon: Icons.save_rounded,
               ),
             ],
           ),
@@ -326,3 +249,4 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
     );
   }
 }
+

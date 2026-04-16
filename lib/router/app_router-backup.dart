@@ -33,16 +33,13 @@ import '../features/schemes/screens/scheme_list_screen.dart';
 import '../features/schemes/screens/create_scheme_screen.dart';
 import '../features/admin/screens/advanced_analytics_screen.dart';
 import '../features/beats/screens/optimized_route_screen.dart';
-// Sprint 7: Stock management
-import '../features/stock/screens/stock_check_screen.dart';
-import '../features/stock/screens/distributor_stock_screen.dart';
 
 class AppRouter {
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
   static const String main = '/main';
-  static const String adminMain = '/admin-main';
+  static const String adminMain = '/admin-main'; // ← ADDED
   static const String liveTracking = '/live-tracking';
   static const String leadDetail = '/lead-detail';
   static const String addLead = '/add-lead';
@@ -57,6 +54,7 @@ class AppRouter {
   static const String about = '/about';
   static const String adminAnalytics = '/admin-analytics';
   static const String visitAnalytics = '/visit-analytics';
+
   static const String productCatalog = '/product-catalog';
   static const String orderBooking = '/order-booking';
   static const String orderHistory = '/order-history';
@@ -68,9 +66,6 @@ class AppRouter {
   static const String schemeList = '/scheme-list';
   static const String advancedAnalytics = '/advanced-analytics';
   static const String optimizedRoute = '/optimized-route';
-  // Sprint 7
-  static const String stockCheck = '/stock-check';
-  static const String distributorStock = '/distributor-stock';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -82,8 +77,8 @@ class AppRouter {
         return _slideRoute(const RegisterScreen());
       case main:
         return _fadeRoute(const MainShell());
-      case adminMain:
-        return _fadeRoute(const AdminShell());
+      case adminMain: // ← ADDED
+        return _fadeRoute(const AdminShell()); // ← ADDED
       case liveTracking:
         return _slideRoute(const LiveTrackingScreen());
       case leadDetail:
@@ -142,21 +137,10 @@ class AppRouter {
       case optimizedRoute:
         return _slideRoute(const OptimizedRouteScreen());
 
-      // ── Sprint 7 ───────────────────────────────────────────────────────
-      case stockCheck:
-        final args = settings.arguments as Map<String, dynamic>;
-        return _slideRoute(StockCheckScreen(
-          party: args['party'],
-          visitId: args['visit_id'] as String?,
-        ));
-      case distributorStock:
-        return _slideRoute(const DistributorStockScreen());
-
       default:
         return _fadeRoute(
           Scaffold(
-            body: Center(
-                child: Text('Route not found: \${settings.name}')),
+            body: Center(child: Text('Route not found: ${settings.name}')),
           ),
         );
     }
@@ -179,10 +163,10 @@ class AppRouter {
         const begin = Offset(1.0, 0.0);
         const end = Offset.zero;
         const curve = Curves.easeInOutCubic;
-        final tween = Tween(begin: begin, end: end)
-            .chain(CurveTween(curve: curve));
-        return SlideTransition(
-            position: animation.drive(tween), child: child);
+        final tween = Tween(begin: begin, end: end).chain(
+          CurveTween(curve: curve),
+        );
+        return SlideTransition(position: animation.drive(tween), child: child);
       },
       transitionDuration: const Duration(milliseconds: 350),
     );

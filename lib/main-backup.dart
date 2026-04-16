@@ -24,22 +24,13 @@ void main() async {
 
   await TrackingService.initialize();
 
-  // Auto-sync on reconnection. connectivity_plus v5 emits List<ConnectivityResult>,
-  // v4 emits a single ConnectivityResult — handle both to avoid runtime cast errors.
-  Connectivity().onConnectivityChanged.listen((dynamic result) async {
-    final bool isOnline;
-    if (result is List) {
-      isOnline = (result as List).any((r) => r != ConnectivityResult.none);
-    } else {
-      isOnline = result != ConnectivityResult.none;
-    }
-    if (isOnline) {
+  Connectivity().onConnectivityChanged.listen((result) async {
+    if (result != ConnectivityResult.none) {
       final pending = await OfflineQueueService.pendingCount();
       if (pending > 0) {
-        debugPrint('Connection restored — syncing \$pending offline record(s)...');
+        debugPrint('Connection restored — syncing $pending offline records...');
         final r = await OfflineQueueService.sync();
-        debugPrint(
-            'Auto-sync: \${r.synced} synced, \${r.failed} failed, \${r.conflicts} conflicts');
+        debugPrint('Sync complete: ${r.synced} synced, ${r.failed} failed');
       }
     }
   });
@@ -72,3 +63,4 @@ class FieldTrackProApp extends ConsumerWidget {
     );
   }
 }
+
