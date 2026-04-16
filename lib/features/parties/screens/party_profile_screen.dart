@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../collections/screens/collect_payment_screen.dart';
 import '../../orders/screens/order_booking_screen.dart';
+import '../../orders/screens/order_detail_screen.dart';
 
 class PartyProfileScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -1229,6 +1230,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   }
 
   // ── TAB 5: Orders ────────────────────────────────
+  //  TAB 5: Orders
+  //  TAB 5: Orders
   Widget _ordersTab() {
     return _orders.isEmpty
         ? const Center(child: Text('No orders yet'))
@@ -1237,43 +1240,131 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
             itemCount: _orders.length,
             itemBuilder: (_, i) {
               final o = _orders[i];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(o['order_number'] ?? '',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 14)),
-                        Text(
-                          DateFormat('dd MMM yyyy').format(
-                              DateTime.parse(o['created_at']).toLocal()),
-                          style:
-                              const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
+              final status = o['status'] ?? 'placed';
+              final paymentMode = (o['payment_mode'] ?? 'credit').toString();
+              final paymentStatus =
+                  (o['payment_status'] ?? 'unpaid').toString();
+
+              return GestureDetector(
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OrderDetailScreen(orderId: o['id']),
                     ),
+                  );
+                  _load(); // Refresh after returning
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
                   ),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(
-                      '₹${_fmt.format((o['total_amount'] as num).toDouble())}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w800, fontSize: 16),
-                    ),
-                    _statusBadge(o['status'] ?? 'placed'),
-                  ]),
-                ]),
+                  child: Column(
+                    children: [
+                      Row(children: [
+                        // Order icon
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _orderStatusColor(status).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.receipt_rounded,
+                              color: _orderStatusColor(status), size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(o['order_number'] ?? '',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14)),
+                              Text(
+                                DateFormat('dd MMM yyyy, hh:mm a').format(
+                                    DateTime.parse(o['created_at']).toLocal()),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '₹${_fmt.format((o['total_amount'] as num).toDouble())}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800, fontSize: 16),
+                              ),
+                              _statusBadge(status),
+                            ]),
+                      ]),
+                      const SizedBox(height: 8),
+                      // Payment info row
+                      Row(
+                        children: [
+                          Icon(Icons.payment_rounded,
+                              size: 13, color: Colors.grey.shade500),
+                          const SizedBox(width: 4),
+                          Text(paymentMode.toUpperCase(),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade600)),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: paymentStatus == 'paid'
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              paymentStatus.toUpperCase(),
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: paymentStatus == 'paid'
+                                      ? Colors.green
+                                      : Colors.orange),
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(Icons.chevron_right,
+                              size: 16, color: Colors.grey.shade400),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           );
+  }
+
+  Color _orderStatusColor(String status) {
+    switch (status) {
+      case 'placed':
+        return Colors.blue;
+      case 'confirmed':
+        return Colors.indigo;
+      case 'dispatched':
+        return Colors.orange;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 
   // ── Helpers ──────────────────────────────────────

@@ -99,6 +99,17 @@ class CollectionService {
   }) async {
     final uid = SupabaseService.userId!;
 
+    // 0. Guard: prevent double-confirmation
+    final existing = await SupabaseService.client
+        .from('collections')
+        .select('status')
+        .eq('id', collectionId)
+        .single();
+    if (existing['status'] == 'confirmed') {
+      debugPrint('Collection already confirmed, skipping');
+      return;
+    }
+
     // 1. Update collection status
     await SupabaseService.client.from('collections').update({
       'status': 'confirmed',
@@ -120,11 +131,27 @@ class CollectionService {
     final newStatus =
         newPaid >= total ? 'paid' : (newPaid > 0 ? 'partial' : 'unpaid');
 
-    // 3. Update invoice
+    // 3. Update invoice (balance is auto-generated, don't include it)
     await SupabaseService.client.from('invoices').update({
       'amount_paid': newPaid,
       'status': newStatus,
     }).eq('id', invoiceId);
+
+    // 3b. Sync order payment_status
+    try {
+      final orderId = invoice['order_id'];
+      if (orderId != null) {
+        await SupabaseService.client.from('orders').update({
+          'payment_status': newStatus == 'paid'
+              ? 'paid'
+              : (newPaid > 0 ? 'partial' : 'unpaid'),
+          'amount_paid': newPaid,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', orderId);
+      }
+    } catch (e) {
+      debugPrint('Order payment sync error: $e');
+    }
 
     // 4. Send WhatsApp if requested
     if (sendWhatsApp && whatsappData != null) {
