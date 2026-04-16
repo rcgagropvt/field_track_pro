@@ -279,6 +279,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               onTap: () => Navigator.pushNamed(
                                   context, AppRouter.orderHistory),
                             ),
+                            const SizedBox(width: 12),
+                            QuickActionButton(
+                              icon: Icons.route,
+                              label: 'Smart Route',
+                              color: Colors.deepPurple,
+                              onTap: () => Navigator.pushNamed(
+                                  context, AppRouter.optimizedRoute),
+                            ),
                           ],
                         ),
                       )

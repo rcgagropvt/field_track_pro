@@ -11,6 +11,7 @@ import '../../../core/services/location_service.dart';
 import '../../../core/services/offline_queue_service.dart';
 import '../../orders/screens/order_booking_screen.dart';
 import '../../../core/services/whatsapp_service.dart';
+import '../../../core/services/geofence_service.dart';
 
 class StartVisitScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -60,6 +61,66 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
         return;
       }
 
+      // ── Geofence check ──────────────────────────────
+      final geoResult = await GeofenceService.validateCheckIn(
+        userLat: pos.latitude,
+        userLng: pos.longitude,
+        party: widget.party,
+      );
+
+      if (!geoResult.allowed) {
+        if (!mounted) return;
+        final override = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.location_off, color: Colors.red, size: 24),
+              SizedBox(width: 8),
+              Text('Outside Geofence'),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(geoResult.reason),
+                const SizedBox(height: 12),
+                Text(
+                  'You are ${geoResult.distance.toStringAsFixed(0)}m away from ${widget.party['name']}.\n'
+                  'Allowed radius: ${geoResult.radius.toStringAsFixed(0)}m.',
+                  style: const TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'This check-in will be flagged for admin review.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.orange),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: const Text('Check In Anyway'),
+              ),
+            ],
+          ),
+        );
+
+        if (override != true) {
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+      // ── End geofence check ──────────────────────────
+
       final selfie = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
@@ -93,6 +154,8 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
         'party_id': widget.party['id'],
         'party_name': widget.party['name'],
         'party_address': widget.party['address'],
+        'geofence_distance': geoResult.distance,
+        'geofence_status': geoResult.allowed ? 'inside' : 'outside',
         'check_in_time': DateTime.now().toIso8601String(),
         'check_in_lat': pos.latitude,
         'check_in_lng': pos.longitude,
@@ -653,5 +716,3 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
     );
   }
 }
-
-

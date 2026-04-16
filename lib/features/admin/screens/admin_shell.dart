@@ -24,6 +24,8 @@ import '../../collections/screens/aging_analysis_screen.dart';
 import '../../collections/screens/outstanding_screen.dart';
 
 import '../../parties/screens/admin_parties_screen.dart';
+import '../screens/advanced_analytics_screen.dart';
+import '../../beats/screens/optimized_route_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -58,8 +60,9 @@ class _AdminShellState extends State<AdminShell> {
     SchemeListScreen(),
     AdminCollectionsScreen(),
     AgingAnalysisScreen(),
-    OutstandingScreen(), // 19 ← NEW
+    OutstandingScreen(), // 18 ← NEW
     AdminPartiesScreen(),
+    AdvancedAnalyticsScreen(),
   ];
 
   @override
@@ -189,14 +192,15 @@ class _AdminShellState extends State<AdminShell> {
                     color: Colors.green,
                     children: [
                       _subItem(Icons.shopping_cart, 'All Orders', 12),
-                      _subItem(Icons.local_offer_rounded, 'Schemes & Offers',
-                          15), // ← ADD
+                      _subItem(
+                          Icons.local_offer_rounded, 'Schemes & Offers', 15),
                       _subItem(Icons.payments_rounded, 'Collections', 16),
                       _subItem(Icons.bar_chart_rounded, 'Aging Analysis', 17),
                       _subItem(Icons.account_balance_wallet, 'Outstanding', 18),
                       _subItem(
                           Icons.check_circle_outline, 'Expense Approvals', 4),
                       _subItem(Icons.analytics, 'Analytics Report', 5),
+                      _subItem(Icons.insights, 'Advanced Analytics', 20),
                     ],
                   ),
 

@@ -31,6 +31,8 @@ import '../features/beats/screens/beat_list_screen.dart';
 import '../features/beats/screens/create_beat_screen.dart';
 import '../features/schemes/screens/scheme_list_screen.dart';
 import '../features/schemes/screens/create_scheme_screen.dart';
+import '../features/admin/screens/advanced_analytics_screen.dart';
+import '../features/beats/screens/optimized_route_screen.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -62,6 +64,8 @@ class AppRouter {
   static const String beatList = '/beat-list';
   static const String createBeat = '/create-beat';
   static const String schemeList = '/scheme-list';
+  static const String advancedAnalytics = '/advanced-analytics';
+  static const String optimizedRoute = '/optimized-route';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -128,6 +132,11 @@ class AppRouter {
         return _slideRoute(const CreateBeatScreen());
       case schemeList:
         return _slideRoute(const SchemeListScreen());
+      case advancedAnalytics:
+        return _slideRoute(const AdvancedAnalyticsScreen());
+      case optimizedRoute:
+        return _slideRoute(const OptimizedRouteScreen());
+
       default:
         return _fadeRoute(
           Scaffold(
@@ -163,5 +172,3 @@ class AppRouter {
     );
   }
 }
-
-
