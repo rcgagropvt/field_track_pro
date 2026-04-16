@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
+import 'package:flutter/foundation.dart';
 
 class AgingAnalysisScreen extends StatefulWidget {
   const AgingAnalysisScreen({super.key});
@@ -13,7 +14,10 @@ class AgingAnalysisScreen extends StatefulWidget {
 class _AgingAnalysisScreenState extends State<AgingAnalysisScreen> {
   bool _loading = true;
   Map<String, List<Map<String, dynamic>>> _buckets = {
-    '0-30': [], '31-60': [], '61-90': [], '90+': [],
+    '0-30': [],
+    '31-60': [],
+    '61-90': [],
+    '90+': [],
   };
 
   @override
@@ -24,36 +28,70 @@ class _AgingAnalysisScreenState extends State<AgingAnalysisScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final uid = SupabaseService.userId!;
     final today = DateTime.now();
 
     try {
-      final invoices = await SupabaseService.client
-          .from('invoices')
-          .select()
-          .eq('user_id', uid)
-          .neq('status', 'paid')
-          .order('due_date');
+      // Check if user is admin
+      final uid = SupabaseService.userId!;
+      final profile = await SupabaseService.client
+          .from('profiles')
+          .select('role')
+          .eq('id', uid)
+          .maybeSingle();
+      final isAdmin =
+          profile?['role'] == 'admin' || profile?['role'] == 'manager';
+
+      // Admin sees all unpaid invoices; sales rep sees only their own
+      List<dynamic> invoices;
+      if (isAdmin) {
+        invoices = await SupabaseService.client
+            .from('invoices')
+            .select()
+            .neq('status', 'paid')
+            .order('due_date');
+      } else {
+        invoices = await SupabaseService.client
+            .from('invoices')
+            .select()
+            .eq('user_id', uid)
+            .neq('status', 'paid')
+            .order('due_date');
+      }
 
       final buckets = <String, List<Map<String, dynamic>>>{
-        '0-30': [], '31-60': [], '61-90': [], '90+': [],
+        '0-30': [],
+        '31-60': [],
+        '61-90': [],
+        '90+': [],
       };
 
-      for (final inv in invoices as List) {
+      for (final inv in invoices) {
         final due = DateTime.tryParse(inv['due_date'] ?? '');
-        if (due == null) continue;
-        final days = today.difference(due).inDays;
+        final created = DateTime.tryParse(inv['created_at'] ?? '');
+        final refDate = due ?? created;
+        if (refDate == null) continue;
+
+        final days = today.difference(refDate).inDays;
         final entry = Map<String, dynamic>.from(inv);
         entry['days_overdue'] = days < 0 ? 0 : days;
 
-        if (days <= 30) buckets['0-30']!.add(entry);
-        else if (days <= 60) buckets['31-60']!.add(entry);
-        else if (days <= 90) buckets['61-90']!.add(entry);
-        else buckets['90+']!.add(entry);
+        if (days <= 30)
+          buckets['0-30']!.add(entry);
+        else if (days <= 60)
+          buckets['31-60']!.add(entry);
+        else if (days <= 90)
+          buckets['61-90']!.add(entry);
+        else
+          buckets['90+']!.add(entry);
       }
 
-      if (mounted) setState(() { _buckets = buckets; _loading = false; });
+      if (mounted)
+        setState(() {
+          _buckets = buckets;
+          _loading = false;
+        });
     } catch (e) {
+      debugPrint('Aging load error: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -65,16 +103,16 @@ class _AgingAnalysisScreenState extends State<AgingAnalysisScreen> {
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##,###');
     final colors = {
-      '0-30':  Colors.green,
+      '0-30': Colors.green,
       '31-60': Colors.orange,
       '61-90': Colors.deepOrange,
-      '90+':   Colors.red.shade800,
+      '90+': Colors.red.shade800,
     };
     final labels = {
-      '0-30':  '0–30 Days',
+      '0-30': '0–30 Days',
       '31-60': '31–60 Days',
       '61-90': '61–90 Days',
-      '90+':   '90+ Days',
+      '90+': '90+ Days',
     };
 
     final total = _buckets.values
@@ -138,20 +176,26 @@ class _AgingAnalysisScreenState extends State<AgingAnalysisScreen> {
                         SizedBox(
                           height: 200,
                           child: PieChart(PieChartData(
-                            sections: _buckets.entries.map((e) {
-                              final v = _bucketTotal(e.key);
-                              if (v == 0) return PieChartSectionData(value: 0, radius: 0);
-                              return PieChartSectionData(
-                                value: v,
-                                color: colors[e.key],
-                                title: '${(v / total * 100).toStringAsFixed(0)}%',
-                                radius: 70,
-                                titleStyle: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700),
-                              );
-                            }).where((s) => s.value > 0).toList(),
+                            sections: _buckets.entries
+                                .map((e) {
+                                  final v = _bucketTotal(e.key);
+                                  if (v == 0)
+                                    return PieChartSectionData(
+                                        value: 0, radius: 0);
+                                  return PieChartSectionData(
+                                    value: v,
+                                    color: colors[e.key],
+                                    title:
+                                        '${(v / total * 100).toStringAsFixed(0)}%',
+                                    radius: 70,
+                                    titleStyle: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700),
+                                  );
+                                })
+                                .where((s) => s.value > 0)
+                                .toList(),
                             sectionsSpace: 3,
                             centerSpaceRadius: 40,
                           )),
@@ -162,16 +206,20 @@ class _AgingAnalysisScreenState extends State<AgingAnalysisScreen> {
                           spacing: 16,
                           runSpacing: 8,
                           children: _buckets.keys.map((k) {
-                            return Row(mainAxisSize: MainAxisSize.min, children: [
-                              Container(width: 12, height: 12,
-                                  decoration: BoxDecoration(
-                                    color: colors[k],
-                                    borderRadius: BorderRadius.circular(3),
-                                  )),
-                              const SizedBox(width: 6),
-                              Text(labels[k]!,
-                                  style: const TextStyle(fontSize: 12)),
-                            ]);
+                            return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: colors[k],
+                                        borderRadius: BorderRadius.circular(3),
+                                      )),
+                                  const SizedBox(width: 6),
+                                  Text(labels[k]!,
+                                      style: const TextStyle(fontSize: 12)),
+                                ]);
                           }).toList(),
                         ),
                       ],
@@ -225,51 +273,50 @@ class _AgingAnalysisScreenState extends State<AgingAnalysisScreen> {
                       ),
                       const SizedBox(height: 8),
                       ..._buckets[e.key]!.map((inv) => Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border(
-                            left: BorderSide(
-                                color: colors[e.key]!, width: 3),
-                          ),
-                        ),
-                        child: Row(children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(inv['party_name'] ?? '',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13)),
-                                Text(inv['invoice_number'] ?? '',
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey)),
-                              ],
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border(
+                                left:
+                                    BorderSide(color: colors[e.key]!, width: 3),
+                              ),
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '₹${fmt.format((inv['balance'] as num?)?.toDouble() ?? 0)}',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: colors[e.key]),
+                            child: Row(children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(inv['party_name'] ?? '',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13)),
+                                    Text(inv['invoice_number'] ?? '',
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.grey)),
+                                  ],
+                                ),
                               ),
-                              Text(
-                                '${inv['days_overdue']} days overdue',
-                                style: const TextStyle(
-                                    fontSize: 10, color: Colors.grey),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '₹${fmt.format((inv['balance'] as num?)?.toDouble() ?? 0)}',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: colors[e.key]),
+                                  ),
+                                  Text(
+                                    '${inv['days_overdue']} days overdue',
+                                    style: const TextStyle(
+                                        fontSize: 10, color: Colors.grey),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ]),
-                      )),
+                            ]),
+                          )),
                       const SizedBox(height: 12),
                     ],
                   );
@@ -279,5 +326,3 @@ class _AgingAnalysisScreenState extends State<AgingAnalysisScreen> {
     );
   }
 }
-
-

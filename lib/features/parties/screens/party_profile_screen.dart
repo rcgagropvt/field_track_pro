@@ -58,17 +58,22 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       // Fetch all data in parallel
       final results = await Future.wait([
         SupabaseService.client
-            .from('invoices').select()
-            .eq('party_id', pid).order('created_at', ascending: false),
+            .from('invoices')
+            .select()
+            .eq('party_id', pid)
+            .order('created_at', ascending: false),
         SupabaseService.client
-            .from('collections').select()
-            .eq('party_id', pid).order('collected_at', ascending: false),
+            .from('collections')
+            .select()
+            .eq('party_id', pid)
+            .order('collected_at', ascending: false),
         SupabaseService.client
-            .from('orders').select()
-            .eq('party_id', pid).order('created_at', ascending: false),
+            .from('orders')
+            .select()
+            .eq('party_id', pid)
+            .order('created_at', ascending: false),
         // Refresh party data (credit_limit etc)
-        SupabaseService.client
-            .from('parties').select().eq('id', pid).single(),
+        SupabaseService.client.from('parties').select().eq('id', pid).single(),
       ]);
 
       final invoices = List<Map<String, dynamic>>.from(results[0] as List);
@@ -100,7 +105,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
           });
         }
       }
-      ledger.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+      ledger
+          .sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
       double bal = 0;
       for (final e in ledger) {
         bal += (e['debit'] as double) - (e['credit'] as double);
@@ -111,13 +117,16 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       final pdcs = collections.where((c) => c['is_pdc'] == true).toList();
 
       // Totals
-      double sales = orders.fold<double>(0, (s, o) => s + ((o['total_amount'] as num).toDouble()));
+      double sales = orders.fold<double>(
+          0, (s, o) => s + ((o['total_amount'] as num).toDouble()));
       double paid = collections
           .where((c) => c['status'] == 'confirmed')
-          .fold<double>(0, (s, c) => s + ((c['amount_collected'] as num).toDouble()));
+          .fold<double>(
+              0, (s, c) => s + ((c['amount_collected'] as num).toDouble()));
       double outstanding = invoices
           .where((i) => i['status'] != 'paid')
-          .fold<double>(0, (s, i) => s + ((i['balance'] as num?)?.toDouble() ?? 0));
+          .fold<double>(
+              0, (s, i) => s + ((i['balance'] as num?)?.toDouble() ?? 0));
 
       if (mounted) {
         setState(() {
@@ -157,9 +166,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, double.tryParse(ctrl.text) ?? 0),
+            onPressed: () =>
+                Navigator.pop(context, double.tryParse(ctrl.text) ?? 0),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             child: const Text('Save', style: TextStyle(color: Colors.white)),
           ),
@@ -169,8 +181,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     if (result != null) {
       await SupabaseService.client
           .from('parties')
-          .update({'credit_limit': result})
-          .eq('id', _party['id'] as String);
+          .update({'credit_limit': result}).eq('id', _party['id'] as String);
       _load();
     }
   }
@@ -179,7 +190,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   Future<void> _editPartyDetails() async {
     final nameCtrl = TextEditingController(text: _party['name'] ?? '');
     final phoneCtrl = TextEditingController(text: _party['phone'] ?? '');
-    final contactCtrl = TextEditingController(text: _party['contact_person'] ?? '');
+    final contactCtrl =
+        TextEditingController(text: _party['contact_person'] ?? '');
     final addressCtrl = TextEditingController(text: _party['address'] ?? '');
     final emailCtrl = TextEditingController(text: _party['email'] ?? '');
     final gstCtrl = TextEditingController(text: _party['gst_number'] ?? '');
@@ -192,7 +204,9 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
           bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: SingleChildScrollView(
@@ -202,7 +216,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
             children: [
               Row(children: [
                 const Text('Edit Party Details',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 IconButton(
                     onPressed: () => Navigator.pop(context),
@@ -224,17 +239,14 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                 height: 50,
                 child: ElevatedButton(
                   onPressed: () async {
-                    await SupabaseService.client
-                        .from('parties')
-                        .update({
-                          'name': nameCtrl.text.trim(),
-                          'phone': phoneCtrl.text.trim(),
-                          'contact_person': contactCtrl.text.trim(),
-                          'address': addressCtrl.text.trim(),
-                          'email': emailCtrl.text.trim(),
-                          'gst_number': gstCtrl.text.trim(),
-                        })
-                        .eq('id', _party['id'] as String);
+                    await SupabaseService.client.from('parties').update({
+                      'name': nameCtrl.text.trim(),
+                      'phone': phoneCtrl.text.trim(),
+                      'contact_person': contactCtrl.text.trim(),
+                      'address': addressCtrl.text.trim(),
+                      'email': emailCtrl.text.trim(),
+                      'gst_number': gstCtrl.text.trim(),
+                    }).eq('id', _party['id'] as String);
                     if (mounted) {
                       Navigator.pop(context);
                       _load();
@@ -246,7 +258,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('Update Party',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -278,8 +291,9 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   @override
   Widget build(BuildContext context) {
     final creditLimit = (_party['credit_limit'] as num?)?.toDouble() ?? 0;
-    final creditUsedPct =
-        creditLimit > 0 ? (_totalOutstanding / creditLimit).clamp(0.0, 1.0) : 0.0;
+    final creditUsedPct = creditLimit > 0
+        ? (_totalOutstanding / creditLimit).clamp(0.0, 1.0)
+        : 0.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
@@ -297,8 +311,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                         icon: const Icon(Icons.edit_outlined),
                         onPressed: _editPartyDetails),
                     IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: _load),
+                        icon: const Icon(Icons.refresh), onPressed: _load),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     background: Container(
@@ -333,7 +346,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(_party['name'] ?? '',
                                           style: const TextStyle(
@@ -346,10 +360,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                                             horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: Colors.white24,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
                                         child: Text(
-                                          (_party['type'] ?? 'party').toUpperCase(),
+                                          (_party['type'] ?? 'party')
+                                              .toUpperCase(),
                                           style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 10,
@@ -364,7 +380,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                               const SizedBox(height: 16),
                               // KPI row
                               Row(children: [
-                                _kpi('Total Sales', '₹${_fmt.format(_totalSales)}'),
+                                _kpi('Total Sales',
+                                    '₹${_fmt.format(_totalSales)}'),
                                 _kpiDivider(),
                                 _kpi('Paid', '₹${_fmt.format(_totalPaid)}'),
                                 _kpiDivider(),
@@ -378,13 +395,17 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                               // Credit limit bar
                               if (creditLimit > 0) ...[
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text('Credit Limit',
                                         style: TextStyle(
-                                            color: Colors.white70, fontSize: 11)),
+                                            color: Colors.white70,
+                                            fontSize: 11)),
                                     GestureDetector(
-                                      onTap: widget.isAdmin ? _editCreditLimit : null,
+                                      onTap: widget.isAdmin
+                                          ? _editCreditLimit
+                                          : null,
                                       child: Row(children: [
                                         Text('₹${_fmt.format(creditLimit)}',
                                             style: const TextStyle(
@@ -392,7 +413,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w700)),
                                         if (widget.isAdmin)
-                                          const Icon(Icons.edit, size: 12, color: Colors.white54),
+                                          const Icon(Icons.edit,
+                                              size: 12, color: Colors.white54),
                                       ]),
                                     ),
                                   ],
@@ -425,7 +447,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                                     SizedBox(width: 4),
                                     Text('Set Credit Limit',
                                         style: TextStyle(
-                                            color: Colors.white54, fontSize: 12)),
+                                            color: Colors.white54,
+                                            fontSize: 12)),
                                   ]),
                                 ),
                             ],
@@ -445,7 +468,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     tabs: const [
                       Tab(text: '📋 Overview'),
                       Tab(text: '📒 Ledger'),
-                      Tab(text: '💰 Payments'),
+                      Tab(text: 'Invoices'),
                       Tab(text: '🏦 PDC Cheques'),
                       Tab(text: '🛒 Orders'),
                     ],
@@ -463,12 +486,11 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                 ],
               ),
             ),
-      floatingActionButton: _totalOutstanding > 0 && !widget.isAdmin
+      floatingActionButton: _totalOutstanding > 0
           ? FloatingActionButton.extended(
               onPressed: () async {
-                final unpaid = _invoices
-                    .where((i) => i['status'] != 'paid')
-                    .toList();
+                final unpaid =
+                    _invoices.where((i) => i['status'] != 'paid').toList();
                 if (unpaid.isNotEmpty && mounted) {
                   await Navigator.push(
                     context,
@@ -482,7 +504,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               backgroundColor: AppColors.primary,
               icon: const Icon(Icons.payments_outlined, color: Colors.white),
               label: Text('Collect ₹${_fmt.format(_totalOutstanding)}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700)),
             )
           : null,
     );
@@ -506,9 +529,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
           child: Column(children: [
             _infoRow(Icons.phone_outlined, 'Phone', _party['phone'] ?? '—'),
             _infoRow(Icons.email_outlined, 'Email', _party['email'] ?? '—'),
-            _infoRow(Icons.person_rounded, 'Contact', _party['contact_person'] ?? '—'),
-            _infoRow(Icons.location_on_outlined, 'Address', _party['address'] ?? '—'),
-            _infoRow(Icons.receipt_outlined, 'GST', _party['gst_number'] ?? '—'),
+            _infoRow(Icons.person_rounded, 'Contact',
+                _party['contact_person'] ?? '—'),
+            _infoRow(Icons.location_on_outlined, 'Address',
+                _party['address'] ?? '—'),
+            _infoRow(
+                Icons.receipt_outlined, 'GST', _party['gst_number'] ?? '—'),
             _infoRow(Icons.location_city, 'City', _party['city'] ?? '—'),
           ]),
         ),
@@ -608,8 +634,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               const Divider(height: 1),
               ListTile(
                 dense: true,
-                leading:
-                    const Icon(Icons.block_outlined, color: Colors.red),
+                leading: const Icon(Icons.block_outlined, color: Colors.red),
                 title: const Text('Deactivate Party'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
@@ -633,10 +658,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     ),
                   );
                   if (confirm == true) {
-                    await SupabaseService.client
-                        .from('parties')
-                        .update({'is_active': false})
-                        .eq('id', _party['id'] as String);
+                    await SupabaseService.client.from('parties').update(
+                        {'is_active': false}).eq('id', _party['id'] as String);
                     if (mounted) Navigator.pop(context);
                   }
                 },
@@ -661,32 +684,42 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     for (final inv in _invoices.where((i) => i['status'] != 'paid')) {
       final due = DateTime.tryParse(inv['due_date'] ?? '');
       final bal = (inv['balance'] as num?)?.toDouble() ?? 0;
-      if (due == null) { buckets['0-30'] = buckets['0-30']! + bal; continue; }
+      if (due == null) {
+        buckets['0-30'] = buckets['0-30']! + bal;
+        continue;
+      }
       final days = today.difference(due).inDays;
-      if (days <= 30) buckets['0-30'] = buckets['0-30']! + bal;
-      else if (days <= 60) buckets['31-60'] = buckets['31-60']! + bal;
-      else if (days <= 90) buckets['61-90'] = buckets['61-90']! + bal;
-      else buckets['90+'] = buckets['90+']! + bal;
+      if (days <= 30)
+        buckets['0-30'] = buckets['0-30']! + bal;
+      else if (days <= 60)
+        buckets['31-60'] = buckets['31-60']! + bal;
+      else if (days <= 90)
+        buckets['61-90'] = buckets['61-90']! + bal;
+      else
+        buckets['90+'] = buckets['90+']! + bal;
     }
 
-    return buckets.entries.where((e) => e.value > 0).map((e) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(children: [
-          Container(width: 10, height: 10,
-              decoration: BoxDecoration(
-                  color: colors[e.key], shape: BoxShape.circle)),
-          const SizedBox(width: 8),
-          Text('${e.key} days', style: const TextStyle(fontSize: 13)),
-          const Spacer(),
-          Text('₹${_fmt.format(e.value)}',
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: colors[e.key],
-                  fontSize: 13)),
-        ]),
-      )
-    ).toList();
+    return buckets.entries
+        .where((e) => e.value > 0)
+        .map((e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                        color: colors[e.key], shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Text('${e.key} days', style: const TextStyle(fontSize: 13)),
+                const Spacer(),
+                Text('₹${_fmt.format(e.value)}',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: colors[e.key],
+                        fontSize: 13)),
+              ]),
+            ))
+        .toList();
   }
 
   // ── TAB 2: Ledger ────────────────────────────────
@@ -715,10 +748,13 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     final bal = e['balance'] as double;
                     return Container(
                       decoration: BoxDecoration(
-                        color: i.isEven ? Colors.white : const Color(0xFFF9FAFB),
+                        color:
+                            i.isEven ? Colors.white : const Color(0xFFF9FAFB),
                         border: Border(
                           left: BorderSide(
-                            color: isOrder ? Colors.red.shade300 : Colors.green.shade300,
+                            color: isOrder
+                                ? Colors.red.shade300
+                                : Colors.green.shade300,
                             width: 3,
                           ),
                           bottom: BorderSide(color: Colors.grey.shade100),
@@ -732,7 +768,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                           child: Text(
                             DateFormat('dd/MM').format(
                                 DateTime.parse(e['date'] as String).toLocal()),
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey),
                           ),
                         ),
                         Expanded(
@@ -803,71 +840,293 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               final amount = (inv['amount'] as num).toDouble();
               final paid = (inv['amount_paid'] as num?)?.toDouble() ?? 0;
               final due = DateTime.tryParse(inv['due_date'] ?? '');
-              final overdue = due != null && due.isBefore(DateTime.now()) &&
+              final overdue = due != null &&
+                  due.isBefore(DateTime.now()) &&
                   inv['status'] != 'paid';
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: overdue
-                          ? Colors.red.shade200
-                          : Colors.grey.shade200),
-                ),
-                child: Column(children: [
-                  Row(children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(inv['invoice_number'] ?? '',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 14)),
-                          if (due != null)
-                            Text('Due: ${DateFormat('dd MMM yyyy').format(due)}',
+              return GestureDetector(
+                onTap: () => _showInvoiceDetail(inv),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: overdue
+                            ? Colors.red.shade200
+                            : Colors.grey.shade200),
+                  ),
+                  child: Column(children: [
+                    Row(children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(inv['invoice_number'] ?? '',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 14)),
+                            if (due != null)
+                              Text(
+                                  'Due: ${DateFormat('dd MMM yyyy').format(due)}',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          overdue ? Colors.red : Colors.grey)),
+                          ],
+                        ),
+                      ),
+                      Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('₹${_fmt.format(balance)}',
                                 style: TextStyle(
-                                    fontSize: 12,
-                                    color: overdue ? Colors.red : Colors.grey)),
-                        ],
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                    color: balance > 0
+                                        ? Colors.red.shade700
+                                        : Colors.green)),
+                            _statusBadge(inv['status'] ?? 'unpaid'),
+                          ]),
+                    ]),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: amount > 0 ? (paid / amount).clamp(0, 1) : 0,
+                        backgroundColor: Colors.grey.shade100,
+                        valueColor: AlwaysStoppedAnimation(
+                            paid >= amount ? Colors.green : Colors.orange),
+                        minHeight: 6,
                       ),
                     ),
-                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text('₹${_fmt.format(balance)}',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              color: balance > 0 ? Colors.red.shade700 : Colors.green)),
-                      _statusBadge(inv['status'] ?? 'unpaid'),
-                    ]),
-                  ]),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: amount > 0 ? (paid / amount).clamp(0, 1) : 0,
-                      backgroundColor: Colors.grey.shade100,
-                      valueColor: AlwaysStoppedAnimation(
-                          paid >= amount ? Colors.green : Colors.orange),
-                      minHeight: 6,
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Invoice: ₹${_fmt.format(amount)}',
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey)),
+                        Text('Paid: ₹${_fmt.format(paid)}',
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey)),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Invoice: ₹${_fmt.format(amount)}',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      Text('Paid: ₹${_fmt.format(paid)}',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                    ],
-                  ),
-                ]),
+                    // Tap hint
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Icon(Icons.touch_app,
+                            size: 12, color: Colors.grey.shade400),
+                        const SizedBox(width: 4),
+                        Text('Tap for details',
+                            style: TextStyle(
+                                fontSize: 10, color: Colors.grey.shade400)),
+                      ],
+                    ),
+                  ]),
+                ),
               );
             },
           );
+  }
+
+  void _showInvoiceDetail(Map<String, dynamic> inv) {
+    final balance = (inv['balance'] as num?)?.toDouble() ?? 0;
+    final amount = (inv['amount'] as num?)?.toDouble() ?? 0;
+    final paid = (inv['amount_paid'] as num?)?.toDouble() ?? 0;
+    final due = DateTime.tryParse(inv['due_date'] ?? '');
+    final created = DateTime.tryParse(inv['created_at'] ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.92,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (ctx, ctrl) => SingleChildScrollView(
+          controller: ctrl,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2))),
+              ),
+              const SizedBox(height: 16),
+
+              // Title + status
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Invoice Detail',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold)),
+                        Text(inv['invoice_number'] ?? '',
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  _statusBadge(inv['status'] ?? 'unpaid'),
+                ],
+              ),
+              const Divider(height: 24),
+
+              // Party
+              _invoiceDetailRow(
+                  Icons.store, 'Party', inv['party_name'] ?? 'N/A'),
+
+              // Dates
+              if (created != null)
+                _invoiceDetailRow(
+                    Icons.calendar_today,
+                    'Created',
+                    DateFormat('dd MMM yyyy, hh:mm a')
+                        .format(created.toLocal())),
+              if (due != null)
+                _invoiceDetailRow(Icons.event, 'Due Date',
+                    DateFormat('dd MMM yyyy').format(due)),
+
+              const Divider(height: 24),
+
+              // Financial Summary
+              const Text('Financial Summary',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              _amountRow('Invoice Amount', amount, Colors.black87),
+              const SizedBox(height: 6),
+              _amountRow('Amount Paid', paid, Colors.green.shade700),
+              const Divider(height: 16),
+              _amountRow('Balance Due', balance,
+                  balance > 0 ? Colors.red.shade700 : Colors.green.shade700,
+                  bold: true),
+
+              // Payment progress
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: amount > 0 ? (paid / amount).clamp(0, 1) : 0,
+                  backgroundColor: Colors.grey.shade100,
+                  valueColor: AlwaysStoppedAnimation(
+                      paid >= amount ? Colors.green : Colors.orange),
+                  minHeight: 10,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${(amount > 0 ? (paid / amount * 100) : 0).toStringAsFixed(1)}% paid',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+
+              // Notes
+              if (inv['notes'] != null &&
+                  inv['notes'].toString().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Notes',
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F6FA),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(inv['notes'].toString(),
+                      style: const TextStyle(fontSize: 13)),
+                ),
+              ],
+
+              // Collect Payment button (for sales rep)
+              if (!widget.isAdmin && balance > 0) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => CollectPaymentScreen(invoice: inv)),
+                      );
+                      _load();
+                    },
+                    icon: const Icon(Icons.payments_outlined),
+                    label: Text('Collect ₹${_fmt.format(balance)}'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _invoiceDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 10),
+          SizedBox(
+              width: 90,
+              child: Text(label,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey))),
+          Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500))),
+        ],
+      ),
+    );
+  }
+
+  Widget _amountRow(String label, double amount, Color color,
+      {bool bold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.normal)),
+        Text('₹${_fmt.format(amount)}',
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+                color: color)),
+      ],
+    );
   }
 
   // ── TAB 4: PDC Cheques ───────────────────────────
@@ -890,8 +1149,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
             itemCount: _pdcs.length,
             itemBuilder: (_, i) {
               final pdc = _pdcs[i];
-              final chequeDate =
-                  DateTime.tryParse(pdc['cheque_date'] ?? '');
+              final chequeDate = DateTime.tryParse(pdc['cheque_date'] ?? '');
               final isPast =
                   chequeDate != null && chequeDate.isBefore(DateTime.now());
 
@@ -911,9 +1169,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: isPast
-                          ? Colors.green.shade50
-                          : Colors.orange.shade50,
+                      color:
+                          isPast ? Colors.green.shade50 : Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(Icons.account_balance_rounded,
@@ -999,8 +1256,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                         Text(
                           DateFormat('dd MMM yyyy').format(
                               DateTime.parse(o['created_at']).toLocal()),
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.grey),
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],
                     ),
@@ -1039,9 +1296,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       Container(width: 1, height: 28, color: Colors.white24);
 
   Widget _sectionCard(
-      {required String title,
-      required IconData icon,
-      required Widget child}) {
+      {required String title, required IconData icon, required Widget child}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1076,14 +1331,11 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
         const SizedBox(width: 10),
         Text(label,
             style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500)),
+                fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(value,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               textAlign: TextAlign.right),
         ),
       ]),
@@ -1114,8 +1366,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     );
   }
 
-  Widget _ledgerHeader(String text,
-      {int flex = 1, bool right = false}) {
+  Widget _ledgerHeader(String text, {int flex = 1, bool right = false}) {
     return Expanded(
       flex: flex,
       child: Text(text,
@@ -1145,9 +1396,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(status.toUpperCase(),
-          style: TextStyle(
-              fontSize: 9, fontWeight: FontWeight.w700, color: c)),
+          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: c)),
     );
   }
 }
-

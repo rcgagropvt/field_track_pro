@@ -21,6 +21,8 @@ import '../../targets/screens/admin_targets_screen.dart';
 import '../../targets/screens/set_targets_screen.dart';
 import '../../schemes/screens/scheme_list_screen.dart';
 import '../../collections/screens/aging_analysis_screen.dart';
+import '../../collections/screens/outstanding_screen.dart';
+
 import '../../parties/screens/admin_parties_screen.dart';
 
 class AdminShell extends StatefulWidget {
@@ -56,6 +58,7 @@ class _AdminShellState extends State<AdminShell> {
     SchemeListScreen(),
     AdminCollectionsScreen(),
     AgingAnalysisScreen(),
+    OutstandingScreen(), // 19 ← NEW
     AdminPartiesScreen(),
   ];
 
@@ -172,7 +175,7 @@ class _AdminShellState extends State<AdminShell> {
                     color: Colors.orange,
                     children: [
                       _subItem(Icons.people, 'All Employees', 1),
-                      _subItem(Icons.store_rounded, 'All Parties', 18),
+                      _subItem(Icons.store_rounded, 'All Parties', 20),
                       _subItem(Icons.map, 'Live Map', 2),
                       _subItem(Icons.store, 'Visit Analytics', 3),
                       _subItem(Icons.route, 'Beat Plans', 13),
@@ -190,6 +193,7 @@ class _AdminShellState extends State<AdminShell> {
                           15), // ← ADD
                       _subItem(Icons.payments_rounded, 'Collections', 16),
                       _subItem(Icons.bar_chart_rounded, 'Aging Analysis', 17),
+                      _subItem(Icons.account_balance_wallet, 'Outstanding', 19),
                       _subItem(
                           Icons.check_circle_outline, 'Expense Approvals', 4),
                       _subItem(Icons.analytics, 'Analytics Report', 5),
@@ -319,4 +323,3 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 }
-

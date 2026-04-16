@@ -15,6 +15,7 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Map<String, dynamic>? _order;
   List<Map<String, dynamic>> _items = [];
+  Map<String, dynamic>? _salesRep;
   bool _isLoading = true;
 
   @override
@@ -38,10 +39,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           .eq('order_id', widget.orderId)
           .order('created_at');
 
+      // Fetch sales rep profile
+      Map<String, dynamic>? rep;
+      final userId = order['user_id'];
+      if (userId != null) {
+        try {
+          rep = await SupabaseService.client
+              .from('profiles')
+              .select('full_name, email, phone, role, department')
+              .eq('id', userId)
+              .maybeSingle();
+        } catch (_) {}
+      }
+
       if (mounted) {
         setState(() {
           _order = order;
           _items = List<Map<String, dynamic>>.from(items);
+          _salesRep = rep;
           _isLoading = false;
         });
       }
@@ -93,8 +108,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                       color: AppColors.white,
                                     ),
                                   ),
-                                  StatusBadge(
-                                      status: _order!['status'] ?? ''),
+                                  StatusBadge(status: _order!['status'] ?? ''),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -102,8 +116,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 _order!['party_name'] ?? '',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color:
-                                      AppColors.white.withValues(alpha: 0.9),
+                                  color: AppColors.white.withValues(alpha: 0.9),
                                 ),
                               ),
                               if (_order!['party_address'] != null)
@@ -111,8 +124,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   _order!['party_address'],
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.white
-                                        .withValues(alpha: 0.7),
+                                    color:
+                                        AppColors.white.withValues(alpha: 0.7),
                                   ),
                                 ),
                               const SizedBox(height: 12),
@@ -130,8 +143,80 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
                         const SizedBox(height: 20),
 
+                        // Sales Rep card
+                        if (_salesRep != null) ...[
+                          _sectionTitle('Sales Representative'),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.divider),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: AppColors.primarySurface,
+                                  child: Text(
+                                    (_salesRep!['full_name'] ?? 'U')[0]
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(_salesRep!['full_name'] ?? 'Unknown',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14)),
+                                      if (_salesRep!['email'] != null)
+                                        Text(_salesRep!['email'],
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textTertiary)),
+                                      if (_salesRep!['phone'] != null)
+                                        Text(_salesRep!['phone'],
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textTertiary)),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySurface,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    (_salesRep!['role'] ?? '')
+                                        .toString()
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
                         // Order info
                         _sectionTitle('Order Information'),
+
                         const SizedBox(height: 8),
                         _infoCard([
                           _infoRow(
@@ -222,9 +307,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           Text(label,
               style: TextStyle(
                 fontSize: 13,
-                color: isBold
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                color: isBold ? AppColors.textPrimary : AppColors.textSecondary,
                 fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
               )),
           Flexible(
@@ -284,8 +367,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 if ((item['discount_percent'] ?? 0) > 0)
                   Text(
                     'Discount: ${item['discount_percent']}%',
-                    style: const TextStyle(
-                        fontSize: 10, color: AppColors.success),
+                    style:
+                        const TextStyle(fontSize: 10, color: AppColors.success),
                   ),
               ],
             ),
@@ -303,5 +386,3 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 }
-
-
