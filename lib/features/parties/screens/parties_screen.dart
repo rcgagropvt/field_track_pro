@@ -5,6 +5,7 @@ import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/empty_state.dart';
 import 'add_party_screen.dart';
 import '../../visits/screens/start_visit_screen.dart';
+import 'party_profile_screen.dart';
 
 class PartiesScreen extends StatefulWidget {
   const PartiesScreen({super.key});
@@ -255,9 +256,15 @@ class _PartiesScreenState extends State<PartiesScreen> {
                                     ),
                                   ],
                                 ),
-                                onTap: () {
-                                  // Navigate to start visit
-                                  _showVisitOption(party);
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PartyProfileScreen(
+                                          party: party, isAdmin: false),
+                                    ),
+                                  );
+                                  _load();
                                 },
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -340,3 +347,4 @@ class _PartiesScreenState extends State<PartiesScreen> {
     );
   }
 }
+

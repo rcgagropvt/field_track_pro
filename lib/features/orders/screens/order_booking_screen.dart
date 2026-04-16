@@ -5,6 +5,8 @@ import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../catalog/screens/product_catalog_screen.dart';
 import '../../../core/services/whatsapp_service.dart';
+import '../../../core/services/scheme_service.dart';
+import '../../../core/services/collection_service.dart';
 
 class OrderBookingScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -25,6 +27,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
   String _paymentMode = 'credit';
   final _notesCtrl = TextEditingController();
   bool _isSubmitting = false;
+  List<AppliedScheme> _appliedSchemes = [];
+  double _schemeDiscount = 0;
 
   double get _subtotal =>
       _cartItems.fold(0, (sum, item) => sum + (item['line_total'] as double));
@@ -37,7 +41,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               (item['tax_percent'] as double) /
               100));
 
-  double get _totalAmount => _subtotal + _taxAmount;
+  double get _totalAmount => _subtotal + _taxAmount - _schemeDiscount;
 
   int get _totalItems =>
       _cartItems.fold(0, (sum, item) => sum + (item['quantity'] as int));
@@ -76,6 +80,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
         'line_total': unitPrice * (minQty as int),
         'mrp': (product['mrp'] as num).toDouble(),
       });
+      _applySchemes();
     });
   }
 
@@ -85,6 +90,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       _cartItems[index]['quantity'] = newQty;
       _recalcLine(index);
     });
+    _applySchemes();
   }
 
   void _updateDiscount(int index, double discount) {
@@ -93,6 +99,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       _cartItems[index]['discount_percent'] = discount;
       _recalcLine(index);
     });
+    _applySchemes();
   }
 
   void _recalcLine(int index) {
@@ -107,12 +114,80 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
 
   void _removeItem(int index) {
     setState(() => _cartItems.removeAt(index));
+    _applySchemes();
+  }
+
+  Future<void> _applySchemes() async {
+    if (_cartItems.isEmpty) {
+      setState(() {
+        _appliedSchemes = [];
+        _schemeDiscount = 0;
+      });
+      return;
+    }
+    final schemes = await SchemeService.applySchemes(
+      cartItems: _cartItems,
+      subtotal: _subtotal,
+    );
+    if (mounted) {
+      setState(() {
+        _appliedSchemes = schemes;
+        _schemeDiscount = schemes.fold(0, (s, e) => s + e.discountAmount);
+      });
+    }
   }
 
   Future<void> _submitOrder() async {
     if (_cartItems.isEmpty) {
       _showSnack('Add at least one product', isError: true);
       return;
+    }
+
+    // ── CREDIT LIMIT CHECK ──────────────────────────────────
+    final creditCheck = await CollectionService.checkCreditLimit(
+      partyId: widget.party['id'] as String,
+      newOrderAmount: _totalAmount,
+    );
+
+    if (creditCheck['exceeded'] == true && mounted) {
+      final override = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+            const SizedBox(width: 8),
+            const Text('Credit Limit Exceeded'),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Credit Limit: ₹${creditCheck['limit']}'),
+              Text(
+                  'Current Outstanding: ₹${creditCheck['outstanding'].toStringAsFixed(0)}'),
+              Text('This Order: ₹${_totalAmount.toStringAsFixed(0)}'),
+              const SizedBox(height: 8),
+              Text(
+                'Total would be ₹${creditCheck['total'].toStringAsFixed(0)} — exceeds limit by ₹${(creditCheck['total'] - creditCheck['limit']).toStringAsFixed(0)}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: Colors.red),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel Order'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Override & Place'),
+            ),
+          ],
+        ),
+      );
+      if (override != true) return;
     }
 
     setState(() => _isSubmitting = true);
@@ -170,6 +245,16 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
 
       await SupabaseService.client.from('order_items').insert(items);
 
+      // Auto-create invoice
+      await CollectionService.createInvoiceForOrder(
+        orderId: orderId,
+        partyId: widget.party['id'] as String,
+        partyName: widget.party['name'] ?? '',
+        userId: SupabaseService.userId!,
+        amount: _totalAmount,
+        dueDays: 30, // 30-day credit period by default
+      );
+
       if (widget.party['phone'] != null) {
         await WhatsAppService.sendOrderConfirmation(
           phone: widget.party['phone'].toString(),
@@ -184,24 +269,6 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
           'order_value': _totalAmount,
           'updated_at': DateTime.now().toIso8601String(),
         }).eq('id', widget.visitId!);
-      }
-
-      final phone = widget.party['phone'] as String?;
-      if (phone != null && phone.isNotEmpty) {
-        SupabaseService.client.functions.invoke(
-          'whatsapp-notify',
-          body: {
-            'type': 'order_created',
-            'data': {
-              'phone': phone.replaceAll(RegExp(r'[^0-9]'), ''),
-              'party_name': widget.party['name'] ?? 'Customer',
-              'total': _totalAmount.toStringAsFixed(0),
-              'order_id': orderNumber,
-            },
-          },
-        ).catchError((e) {
-          debugPrint('WhatsApp notify failed: $e');
-        });
       }
 
       if (mounted) {
@@ -568,6 +635,40 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 children: [
                   _summaryRow('Subtotal', '₹${_subtotal.toStringAsFixed(2)}'),
                   _summaryRow('Tax', '₹${_taxAmount.toStringAsFixed(2)}'),
+
+                  // ── SCHEME DISCOUNTS ──────────────────────────────
+                  if (_appliedSchemes.isNotEmpty) ...[
+                    const Divider(),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Row(children: [
+                        Icon(Icons.local_offer, size: 13, color: Colors.green),
+                        SizedBox(width: 6),
+                        Text('Applied Schemes',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: Colors.green)),
+                      ]),
+                    ),
+                    ..._appliedSchemes.map((s) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(children: [
+                            Expanded(
+                              child: Text(s.description,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.black54)),
+                            ),
+                            Text('- ₹${s.discountAmount.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13)),
+                          ]),
+                        )),
+                  ],
+                  // ─────────────────────────────────────────────────
+
                   const Divider(),
                   _summaryRow(
                     'Total',
@@ -613,3 +714,5 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
     );
   }
 }
+
+

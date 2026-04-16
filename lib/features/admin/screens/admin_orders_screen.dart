@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
-import 'package:field_track_pro/core/constants/app_colors.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/constants/app_colors.dart';
 import '../../orders/screens/order_detail_screen.dart';
 import 'admin_shell.dart';
 
@@ -514,3 +514,5 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     );
   }
 }
+
+

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_shell.dart';
 
@@ -383,3 +383,5 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
             BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)
           ]);
 }
+
+

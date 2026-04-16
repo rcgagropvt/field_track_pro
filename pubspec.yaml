@@ -1,10 +1,11 @@
-name: field_track_pro
-description: Professional Field Employee Tracking App with CRM
+name: vartmaan_pulse
+description: Vartmaan Pulse — Performance, Updates, Location, Sales, & Execution
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
   sdk: ^3.6.0
+
 
 dependencies:
   flutter:

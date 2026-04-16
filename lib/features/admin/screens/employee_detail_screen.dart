@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
-import 'package:field_track_pro/core/constants/app_colors.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/constants/app_colors.dart';
 import '../../orders/screens/order_detail_screen.dart';
 
 class EmployeeDetailScreen extends StatefulWidget {
@@ -1267,3 +1267,5 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
     }
   }
 }
+
+

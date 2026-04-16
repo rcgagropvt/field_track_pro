@@ -112,3 +112,5 @@ class AboutScreen extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: isLink ? Colors.blue : Colors.black87)));
 }
+
+

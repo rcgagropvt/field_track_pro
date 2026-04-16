@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 import 'employee_detail_screen.dart';
 import 'admin_shell.dart';
 
@@ -507,3 +507,5 @@ class _TriangleClipper extends CustomClipper<ui.Path> {
   @override
   bool shouldReclip(covariant CustomClipper<ui.Path> oldClipper) => false;
 }
+
+

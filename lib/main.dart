@@ -53,7 +53,7 @@ class FieldTrackProApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
-      title: 'FieldTrack Pro',
+      title: 'Vartmaan Pulse',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
@@ -63,3 +63,4 @@ class FieldTrackProApp extends ConsumerWidget {
     );
   }
 }
+

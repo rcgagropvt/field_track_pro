@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 import 'admin_shell.dart';
 
 class AssignTaskScreen extends StatefulWidget {
@@ -236,3 +236,5 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
             borderSide: BorderSide(color: Colors.grey.shade300)),
       );
 }
+
+

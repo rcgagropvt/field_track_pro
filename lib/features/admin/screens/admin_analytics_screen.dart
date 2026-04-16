@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 
 class AdminAnalyticsScreen extends StatefulWidget {
   const AdminAnalyticsScreen({super.key});
@@ -711,3 +711,5 @@ class _Insight {
   final Color color;
   _Insight(this.emoji, this.label, this.value, this.detail, this.color);
 }
+
+

@@ -14,6 +14,10 @@ import '../../orders/screens/order_history_screen.dart';
 import '../../catalog/screens/product_catalog_screen.dart';
 import '../../beats/screens/beat_plan_screen.dart';
 import '../../targets/screens/target_screen.dart';
+import '../../collections/screens/outstanding_screen.dart'; // ← ADD THIS
+import '../../../core/widgets/vartmaan_logo.dart';
+import '../../collections/screens/aging_analysis_screen.dart';
+import '../../collections/screens/party_ledger_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -115,22 +119,21 @@ class _MainShellState extends State<MainShell> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                gradient: AppColors.primaryGradient,
-              ),
-              child: const Column(
+              decoration:
+                  const BoxDecoration(gradient: AppColors.primaryGradient),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.location_on_rounded,
-                      size: 36, color: AppColors.white),
-                  SizedBox(height: 12),
-                  Text('FieldTrack Pro',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.white)),
-                  Text('Menu',
-                      style: TextStyle(fontSize: 13, color: Colors.white70)),
+                  const VartmaanLogo(size: 44, color: Colors.white),
+                  const SizedBox(height: 12),
+                  const VartmaanWordmark(
+                    size: 32,
+                    color: Colors.white,
+                    textColor: Colors.white,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('Field Sales Platform',
+                      style: TextStyle(fontSize: 12, color: Colors.white60)),
                 ],
               ),
             ),
@@ -140,6 +143,12 @@ class _MainShellState extends State<MainShell> {
               Navigator.pop(context);
               Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const TargetScreen()));
+            }),
+
+            _drawerItem(Icons.payments_outlined, 'Outstanding', () {
+              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const OutstandingScreen()));
             }),
 
             _drawerItem(Icons.route, 'Beat Plan', () {
@@ -227,3 +236,5 @@ class _MainShellState extends State<MainShell> {
     );
   }
 }
+
+

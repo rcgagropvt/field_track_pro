@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'admin_shell.dart';
@@ -552,3 +552,5 @@ class _VisitAnalyticsScreenState extends State<VisitAnalyticsScreen> {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 }
+
+

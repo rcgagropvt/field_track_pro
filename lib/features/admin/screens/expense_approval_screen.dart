@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 import 'admin_shell.dart';
 
 class ExpenseApprovalScreen extends StatefulWidget {
@@ -612,3 +612,5 @@ class _ExpenseApprovalScreenState extends State<ExpenseApprovalScreen>
     );
   }
 }
+
+

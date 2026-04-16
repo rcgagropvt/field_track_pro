@@ -448,3 +448,5 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
     );
   }
 }
+
+

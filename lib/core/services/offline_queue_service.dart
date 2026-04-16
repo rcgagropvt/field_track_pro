@@ -92,3 +92,5 @@ class SyncResult {
   final int failed;
   SyncResult({required this.synced, required this.failed});
 }
+
+

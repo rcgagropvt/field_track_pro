@@ -20,6 +20,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
   final _emailCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
+  final _creditLimitCtrl = TextEditingController();
   String _type = 'dealer';
   bool _isLoading = false;
   bool _useCurrentLocation = false;
@@ -53,6 +54,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
         'latitude': _lat,
         'longitude': _lng,
         'is_active': true,
+        'credit_limit': double.tryParse(_creditLimitCtrl.text) ?? 0,
       });
 
       if (mounted) {
@@ -87,6 +89,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
     _emailCtrl.dispose();
     _addressCtrl.dispose();
     _cityCtrl.dispose();
+    _creditLimitCtrl.dispose();
     super.dispose();
   }
 
@@ -176,6 +179,13 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                 label: 'City',
                 prefixIcon: Icons.location_city_rounded,
               ),
+              const SizedBox(height: 12),
+              CustomTextField(
+                controller: _creditLimitCtrl,
+                label: 'Credit Limit (₹) — 0 = No limit',
+                prefixIcon: Icons.credit_card_outlined,
+                keyboardType: TextInputType.number,
+              ),
 
               const SizedBox(height: 16),
               // GPS Location Capture
@@ -239,3 +249,4 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
     );
   }
 }
+

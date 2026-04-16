@@ -34,3 +34,5 @@ class AppSizes {
   static const double fontXxl = 24.0;
   static const double fontDisplay = 32.0;
 }
+
+

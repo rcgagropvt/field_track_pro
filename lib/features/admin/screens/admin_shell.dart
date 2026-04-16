@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:field_track_pro/core/services/supabase_service.dart';
+import 'package:vartmaan_pulse/core/services/supabase_service.dart';
+
 import 'admin_dashboard_screen.dart';
 import 'employee_list_screen.dart';
 import 'live_map_screen.dart';
@@ -11,11 +12,16 @@ import 'create_employee_screen.dart';
 import 'admin_profile_screen.dart';
 import 'admin_settings_screen.dart';
 import 'about_screen.dart';
-import '../../catalog/screens/manage_products_screen.dart';
 import 'admin_orders_screen.dart';
+import 'admin_collections_screen.dart';
+
+import '../../catalog/screens/manage_products_screen.dart';
 import '../../beats/screens/beat_list_screen.dart';
 import '../../targets/screens/admin_targets_screen.dart';
 import '../../targets/screens/set_targets_screen.dart';
+import '../../schemes/screens/scheme_list_screen.dart';
+import '../../collections/screens/aging_analysis_screen.dart';
+import '../../parties/screens/admin_parties_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -47,6 +53,10 @@ class _AdminShellState extends State<AdminShell> {
     AdminOrdersScreen(), // 12  ← NEW
     BeatListScreen(),
     AdminTargetsScreen(),
+    SchemeListScreen(),
+    AdminCollectionsScreen(),
+    AgingAnalysisScreen(),
+    AdminPartiesScreen(),
   ];
 
   @override
@@ -162,6 +172,7 @@ class _AdminShellState extends State<AdminShell> {
                     color: Colors.orange,
                     children: [
                       _subItem(Icons.people, 'All Employees', 1),
+                      _subItem(Icons.store_rounded, 'All Parties', 18),
                       _subItem(Icons.map, 'Live Map', 2),
                       _subItem(Icons.store, 'Visit Analytics', 3),
                       _subItem(Icons.route, 'Beat Plans', 13),
@@ -175,6 +186,10 @@ class _AdminShellState extends State<AdminShell> {
                     color: Colors.green,
                     children: [
                       _subItem(Icons.shopping_cart, 'All Orders', 12),
+                      _subItem(Icons.local_offer_rounded, 'Schemes & Offers',
+                          15), // ← ADD
+                      _subItem(Icons.payments_rounded, 'Collections', 16),
+                      _subItem(Icons.bar_chart_rounded, 'Aging Analysis', 17),
                       _subItem(
                           Icons.check_circle_outline, 'Expense Approvals', 4),
                       _subItem(Icons.analytics, 'Analytics Report', 5),
@@ -304,3 +319,4 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 }
+

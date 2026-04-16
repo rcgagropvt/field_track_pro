@@ -17,19 +17,20 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Map<String, Map<String, dynamic>> _locations = {};
   Map<String, dynamic>? _selectedEmployee;
   bool _loading = true;
-  RealtimeChannel? _channel;
+  Timer? _timer;
   DateTime _lastRefresh = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _loadInitial();
-    _subscribeRealtime();
+    // Poll every 30 seconds instead of realtime (simpler, no API issues)
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _loadInitial());
   }
 
   @override
   void dispose() {
-    _channel?.unsubscribe();
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -41,7 +42,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           .eq('role', 'employee')
           .eq('is_active', true);
 
-      // Get latest location for each employee
+      final newLocations = <String, Map<String, dynamic>>{};
+
       for (final emp in emps as List) {
         final uid = emp['id'] as String;
         final locs = await SupabaseService.client
@@ -52,50 +54,22 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             .limit(1);
 
         if ((locs as List).isNotEmpty) {
-          _locations[uid] = locs.first;
+          newLocations[uid] = Map<String, dynamic>.from(locs.first);
         }
       }
 
       if (mounted) {
         setState(() {
           _employees = List<Map<String, dynamic>>.from(emps);
+          _locations = newLocations;
           _loading = false;
           _lastRefresh = DateTime.now();
         });
       }
     } catch (e) {
-      debugPrint('LiveMap load error: \$e');
+      debugPrint('LiveMap load error: $e');
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _subscribeRealtime() {
-    _channel = SupabaseService.client
-        .channel('location_logs_realtime')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'location_logs',
-          callback: (payload) {
-            final data = payload.newRecord;
-            final uid = data['user_id'] as String?;
-            if (uid != null && mounted) {
-              setState(() {
-                _locations[uid] = data;
-                _lastRefresh = DateTime.now();
-              });
-              // If this employee is selected, pan map to them
-              if (_selectedEmployee?['id'] == uid) {
-                final lat = (data['latitude'] as num?)?.toDouble();
-                final lng = (data['longitude'] as num?)?.toDouble();
-                if (lat != null && lng != null) {
-                  _mapCtrl.move(LatLng(lat, lng), _mapCtrl.camera.zoom);
-                }
-              }
-            }
-          },
-        )
-        .subscribe();
   }
 
   String _timeAgo(String? isoString) {
@@ -104,9 +78,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (t == null) return 'Unknown';
     final diff = DateTime.now().difference(t);
     if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '\${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '\${diff.inHours}h ago';
-    return '\${diff.inDays}d ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   bool _isOnline(String? isoString) {
@@ -118,14 +92,21 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final onlineCount = _employees
+        .where((e) => _isOnline(_locations[e['id']]?['created_at'] as String?))
+        .length;
+
     return Scaffold(
       backgroundColor: const Color(0xFF1A1D2E),
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Live Tracking',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          Text('Updated \${_timeAgo(_lastRefresh.toIso8601String())} • \${_employees.where((e) => _isOnline(_locations[e['id']]?['created_at'])).length} online',
-              style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              style:
+                  TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(
+            'Updated ${_timeAgo(_lastRefresh.toIso8601String())} • $onlineCount online',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
         ]),
         backgroundColor: const Color(0xFF1A1D2E),
         foregroundColor: Colors.white,
@@ -148,6 +129,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   Widget _mapSection() {
     final markers = <Marker>[];
+
     for (final emp in _employees) {
       final uid = emp['id'] as String;
       final loc = _locations[uid];
@@ -164,34 +146,48 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         width: isSelected ? 60 : 48,
         height: isSelected ? 60 : 48,
         child: GestureDetector(
-          onTap: () => setState(() {
-            _selectedEmployee = emp;
+          onTap: () {
+            setState(() {
+              _selectedEmployee = emp;
+            });
             _mapCtrl.move(LatLng(lat, lng), 15);
-          }),
+          },
           child: Stack(children: [
             Container(
               decoration: BoxDecoration(
                 color: online ? Colors.green : Colors.grey,
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: isSelected ? Colors.white : Colors.transparent, width: 3),
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  width: 3,
+                ),
                 boxShadow: [
                   BoxShadow(
-                      color: (online ? Colors.green : Colors.grey).withOpacity(0.4),
-                      blurRadius: 8, spreadRadius: 2),
+                    color: (online ? Colors.green : Colors.grey)
+                        .withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
                 ],
               ),
               child: Center(
-                child: Text((emp['full_name'] as String)[0].toUpperCase(),
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text(
+                  (emp['full_name'] as String? ?? 'U')[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ),
             ),
             if (online)
               Positioned(
-                right: 2, top: 2,
+                right: 2,
+                top: 2,
                 child: Container(
-                  width: 12, height: 12,
+                  width: 12,
+                  height: 12,
                   decoration: BoxDecoration(
                     color: Colors.greenAccent,
                     shape: BoxShape.circle,
@@ -204,37 +200,39 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       ));
     }
 
-    final initialCenter = () {
-      for (final emp in _employees) {
-        final loc = _locations[emp['id']];
-        if (loc != null) {
-          final lat = (loc['latitude'] as num?)?.toDouble();
-          final lng = (loc['longitude'] as num?)?.toDouble();
-          if (lat != null && lng != null) return LatLng(lat, lng);
-        }
+    // Find a starting center
+    LatLng initialCenter = const LatLng(20.5937, 78.9629);
+    for (final emp in _employees) {
+      final loc = _locations[emp['id']];
+      if (loc == null) continue;
+      final lat = (loc['latitude'] as num?)?.toDouble();
+      final lng = (loc['longitude'] as num?)?.toDouble();
+      if (lat != null && lng != null) {
+        initialCenter = LatLng(lat, lng);
+        break;
       }
-      return const LatLng(20.5937, 78.9629);
-    }();
+    }
 
     return Stack(children: [
       FlutterMap(
         mapController: _mapCtrl,
-        options: MapOptions(initialCenter: initialCenter, initialZoom: 10),
+        options: MapOptions(
+          initialCenter: initialCenter,
+          initialZoom: 10,
+        ),
         children: [
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.terrascope.terrascope_new',
+            userAgentPackageName: 'com.vartmaan.vartmaan_pulse',
           ),
           MarkerLayer(markers: markers),
         ],
       ),
 
-      // Selected employee bubble
-      if (_selectedEmployee != null) _selectedBubble(),
-
       // Online count badge
       Positioned(
-        top: 12, right: 12,
+        top: 12,
+        right: 12,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -245,12 +243,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             const Icon(Icons.circle, color: Colors.greenAccent, size: 10),
             const SizedBox(width: 6),
             Text(
-              '\${_employees.where((e) => _isOnline(_locations[e['id']]?['created_at'])).length} / \${_employees.length} online',
+              '${_employees.where((e) => _isOnline(_locations[e['id']]?['created_at'] as String?)).length}'
+              ' / ${_employees.length} online',
               style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ]),
         ),
       ),
+
+      // Selected employee bubble
+      if (_selectedEmployee != null) _selectedBubble(),
     ]);
   }
 
@@ -262,7 +264,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     final battery = loc['battery_level'] as int?;
 
     return Positioned(
-      bottom: 12, left: 12, right: 12,
+      bottom: 12,
+      left: 12,
+      right: 12,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -273,107 +277,162 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         child: Row(children: [
           CircleAvatar(
             backgroundColor: online ? Colors.green : Colors.grey,
-            child: Text((emp['full_name'] as String)[0].toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(
+              (emp['full_name'] as String? ?? 'U')[0].toUpperCase(),
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(emp['full_name'] as String,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            Text(
-              online ? '🟢 Online • \${_timeAgo(loc['created_at'] as String?)}' 
-                     : '⚪ Last seen \${_timeAgo(loc['created_at'] as String?)}',
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  emp['full_name'] as String? ?? 'Employee',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  online
+                      ? '🟢 Online • ${_timeAgo(loc['created_at'] as String?)}'
+                      : '⚪ Last seen ${_timeAgo(loc['created_at'] as String?)}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
             ),
-          ])),
-          if (battery != null)
-            Row(children: [
-              Icon(
-                battery > 50 ? Icons.battery_full : battery > 20 ? Icons.battery_4_bar : Icons.battery_alert,
-                color: battery > 50 ? Colors.green : battery > 20 ? Colors.orange : Colors.red,
-                size: 16,
-              ),
-              Text('\$battery%', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-            ]),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.grey, size: 18),
-            onPressed: () => setState(() => _selectedEmployee = null),
+          ),
+          if (battery != null) ...[
+            Icon(
+              battery > 50
+                  ? Icons.battery_full
+                  : battery > 20
+                      ? Icons.battery_3_bar
+                      : Icons.battery_alert,
+              color: battery > 50
+                  ? Colors.greenAccent
+                  : battery > 20
+                      ? Colors.orange
+                      : Colors.red,
+              size: 18,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$battery%',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => setState(() => _selectedEmployee = null),
+            child: const Icon(Icons.close, color: Colors.white54, size: 18),
           ),
         ]),
       ),
     );
   }
 
-  Widget _employeeList() => Container(
-        height: 120,
-        color: const Color(0xFF252840),
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          itemCount: _employees.length,
-          itemBuilder: (_, i) {
-            final emp = _employees[i];
-            final loc = _locations[emp['id']];
-            final online = _isOnline(loc?['created_at'] as String?);
-            final isSelected = _selectedEmployee?['id'] == emp['id'];
+  Widget _employeeList() {
+    return Container(
+      height: 130,
+      color: const Color(0xFF1A1D2E),
+      child: _employees.isEmpty
+          ? const Center(
+              child: Text('No employees found',
+                  style: TextStyle(color: Colors.grey)))
+          : ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              itemCount: _employees.length,
+              itemBuilder: (_, i) {
+                final emp = _employees[i];
+                final uid = emp['id'] as String;
+                final loc = _locations[uid];
+                final online = _isOnline(loc?['created_at'] as String?);
+                final isSelected = _selectedEmployee?['id'] == uid;
 
-            return GestureDetector(
-              onTap: () {
-                setState(() => _selectedEmployee = emp);
-                if (loc != null) {
-                  final lat = (loc['latitude'] as num?)?.toDouble();
-                  final lng = (loc['longitude'] as num?)?.toDouble();
-                  if (lat != null && lng != null) {
-                    _mapCtrl.move(LatLng(lat, lng), 15);
-                  }
-                }
-              },
-              child: Container(
-                width: 90,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.blue.withOpacity(0.2)
-                      : Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? Colors.blue : Colors.transparent,
-                  ),
-                ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Stack(children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: online ? Colors.green.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
-                      child: Text((emp['full_name'] as String)[0].toUpperCase(),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                    Positioned(
-                      right: 0, bottom: 0,
-                      child: Container(
-                        width: 12, height: 12,
-                        decoration: BoxDecoration(
-                          color: online ? Colors.greenAccent : Colors.grey,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF252840), width: 2),
-                        ),
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedEmployee = emp);
+                    if (loc != null) {
+                      final lat = (loc['latitude'] as num?)?.toDouble();
+                      final lng = (loc['longitude'] as num?)?.toDouble();
+                      if (lat != null && lng != null) {
+                        _mapCtrl.move(LatLng(lat, lng), 15);
+                      }
+                    }
+                  },
+                  child: Container(
+                    width: 90,
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primary.withValues(alpha: 0.3)
+                          : Colors.white12,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color:
+                            isSelected ? AppColors.primary : Colors.transparent,
                       ),
                     ),
-                  ]),
-                  const SizedBox(height: 6),
-                  Text(
-                    (emp['full_name'] as String).split(' ').first,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Stack(children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor:
+                                online ? Colors.green : Colors.grey,
+                            child: Text(
+                              (emp['full_name'] as String? ?? 'U')[0]
+                                  .toUpperCase(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          if (online)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: Colors.greenAccent,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: const Color(0xFF1A1D2E),
+                                      width: 1.5),
+                                ),
+                              ),
+                            ),
+                        ]),
+                        const SizedBox(height: 6),
+                        Text(
+                          (emp['full_name'] as String? ?? 'Employee')
+                              .split(' ')
+                              .first,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          loc != null
+                              ? _timeAgo(loc['created_at'] as String?)
+                              : 'No data',
+                          style:
+                              const TextStyle(color: Colors.grey, fontSize: 9),
+                        ),
+                      ],
+                    ),
                   ),
-                  Text(
-                    loc == null ? 'No data' : _timeAgo(loc['created_at'] as String?),
-                    style: const TextStyle(color: Colors.grey, fontSize: 10),
-                  ),
-                ]),
-              ),
-            );
-          },
-        ),
-      );
+                );
+              },
+            ),
+    );
+  }
 }
