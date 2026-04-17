@@ -333,6 +333,13 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
             'p_description': 'Photo proof at ${widget.party['name']}',
           });
         }
+        // Check milestones & notify rank changes
+        try {
+          await SupabaseService.client.rpc('check_milestones',
+              params: {'p_user_id': SupabaseService.userId});
+          await SupabaseService.client.rpc('notify_rank_change',
+              params: {'p_user_id': SupabaseService.userId});
+        } catch (_) {}
       } catch (_) {}
 
       await Future.delayed(const Duration(seconds: 1));

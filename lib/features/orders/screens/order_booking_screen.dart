@@ -391,6 +391,14 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
             'p_description': 'Order at ${widget.party['name']}',
             'p_reference_id': orderId,
           });
+          // Check milestones & notify rank changes
+          try {
+            await SupabaseService.client.rpc('check_milestones',
+                params: {'p_user_id': SupabaseService.userId});
+            await SupabaseService.client.rpc('notify_rank_change',
+                params: {'p_user_id': SupabaseService.userId});
+          } catch (_) {}
+
           await SupabaseService.client.rpc('award_loyalty_points', params: {
             'p_party_id': widget.party['id'],
             'p_order_amount': _totalAmount,
