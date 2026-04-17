@@ -108,13 +108,13 @@ void _onServiceStart(ServiceInstance service) async {
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      await supabase.from('location_logs').insert({
+      await supabase.from('location_tracks').insert({
         'user_id': user.id,
         'latitude': position.latitude,
         'longitude': position.longitude,
         'accuracy': position.accuracy,
         'speed': position.speed,
-        'created_at': now.toIso8601String(),
+        'recorded_at': now.toIso8601String(),
       });
     } catch (e) {
       // Save to Hive for offline retry
@@ -130,5 +130,3 @@ void _onServiceStart(ServiceInstance service) async {
     }
   });
 }
-
-

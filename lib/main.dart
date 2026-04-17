@@ -24,6 +24,29 @@ void main() async {
 
   await TrackingService.initialize();
 
+  // Auto-resume tracking if employee is checked in but not checked out
+  // Auto-resume tracking if checked in but not checked out
+  try {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+      final attendance = await Supabase.instance.client
+          .from('attendance')
+          .select('id, check_in_time, check_out_time')
+          .eq('user_id', user.id)
+          .gte('check_in_time', '${todayStr}T00:00:00.000')
+          .maybeSingle();
+      if (attendance != null &&
+          attendance['check_in_time'] != null &&
+          attendance['check_out_time'] == null) {
+        final isRunning = await TrackingService.isRunning();
+        if (!isRunning) {
+          await TrackingService.startTracking();
+        }
+      }
+    }
+  } catch (_) {}
+
   // Auto-sync on reconnection. connectivity_plus v5 emits List<ConnectivityResult>,
   // v4 emits a single ConnectivityResult — handle both to avoid runtime cast errors.
   Connectivity().onConnectivityChanged.listen((dynamic result) async {
@@ -36,7 +59,8 @@ void main() async {
     if (isOnline) {
       final pending = await OfflineQueueService.pendingCount();
       if (pending > 0) {
-        debugPrint('Connection restored — syncing $pending offline record(s)...');
+        debugPrint(
+            'Connection restored — syncing $pending offline record(s)...');
         final r = await OfflineQueueService.sync();
         debugPrint(
             'Auto-sync: ${r.synced} synced, ${r.failed} failed, ${r.conflicts} conflicts');

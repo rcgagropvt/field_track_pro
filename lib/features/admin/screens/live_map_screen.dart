@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 import 'employee_detail_screen.dart';
 import 'admin_shell.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -105,6 +106,22 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   color: Colors.blue),
               tooltip: 'Toggle Trails',
               onPressed: () => setState(() => _showTrails = !_showTrails)),
+          IconButton(
+              icon: const Icon(Icons.map_outlined, color: Colors.green),
+              tooltip: 'Open all in Google Maps',
+              onPressed: () {
+                if (_locations.isEmpty) return;
+                final waypoints = _locations.map((l) {
+                  final lat = (l['latitude'] as num).toDouble();
+                  final lng = (l['longitude'] as num).toDouble();
+                  return '$lat,$lng';
+                }).toList();
+                final first = waypoints.removeAt(0);
+                final url = waypoints.isEmpty
+                    ? 'https://www.google.com/maps/search/?api=1&query=$first'
+                    : 'https://www.google.com/maps/dir/$first/${waypoints.join('/')}';
+                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              }),
           IconButton(
               icon: const Icon(Icons.refresh), onPressed: _loadLocations),
         ],
@@ -421,11 +438,28 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 }
               },
               icon: const Icon(Icons.person, size: 16),
-              label: const Text('View Profile'),
+              label: const Text('Profile'),
             )),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
-                child: ElevatedButton.icon(
+                child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                final lat = (loc['latitude'] as num).toDouble();
+                final lng = (loc['longitude'] as num).toDouble();
+                final url = Uri.parse(
+                    'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                launchUrl(url, mode: LaunchMode.externalApplication);
+              },
+              icon: const Icon(Icons.map, size: 16, color: Colors.green),
+              label: const Text('Google Maps',
+                  style: TextStyle(color: Colors.green)),
+            )),
+          ]),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
                 final lat = (loc['latitude'] as num).toDouble();
@@ -436,8 +470,44 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               label: const Text('Center Map'),
               style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue, foregroundColor: Colors.white),
-            )),
-          ]),
+            ),
+          ),
+          // ── Open Trail in Google Maps ──
+          if (_trails[loc['user_id']]?.isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    final trail = _trails[loc['user_id']]!;
+                    final step = (trail.length / 23).ceil().clamp(1, 100);
+                    final points = <String>[];
+                    for (var i = 0; i < trail.length; i += step) {
+                      points.add('${trail[i].latitude},${trail[i].longitude}');
+                    }
+                    final last = trail.last;
+                    final lastStr = '${last.latitude},${last.longitude}';
+                    if (points.last != lastStr) points.add(lastStr);
+                    final origin = points.removeAt(0);
+                    final dest = points.removeLast();
+                    final wp = points.isNotEmpty
+                        ? '&waypoints=${points.join('|')}'
+                        : '';
+                    final url =
+                        'https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$dest$wp&travelmode=driving';
+                    launchUrl(Uri.parse(url),
+                        mode: LaunchMode.externalApplication);
+                  },
+                  icon: const Icon(Icons.route, size: 16, color: Colors.orange),
+                  label: Text(
+                      "Open Today's Trail (${_trails[loc['user_id']]!.length} points)",
+                      style:
+                          const TextStyle(color: Colors.orange, fontSize: 12)),
+                ),
+              ),
+            ),
         ]),
       ),
     );

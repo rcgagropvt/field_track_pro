@@ -24,7 +24,7 @@ import '../../collections/screens/aging_analysis_screen.dart';
 import '../../collections/screens/outstanding_screen.dart';
 import '../../parties/screens/admin_parties_screen.dart';
 import '../../stock/screens/distributor_stock_screen.dart';
-
+import 'ai_command_center_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -36,35 +36,35 @@ class AdminShell extends StatefulWidget {
   State<AdminShell> createState() => _AdminShellState();
 }
 
-
 class _AdminShellState extends State<AdminShell> {
   int _currentIndex = 0;
   Map<String, dynamic> _adminProfile = {};
 
   // Index map — keep these comments to avoid off-by-one bugs
   final List<Widget> _screens = const [
-    AdminDashboardScreen(),    // 0
-    EmployeeListScreen(),      // 1
-    LiveMapScreen(),           // 2
-    VisitAnalyticsScreen(),    // 3
-    ExpenseApprovalScreen(),   // 4
-    AdminAnalyticsScreen(),    // 5
-    AssignTaskScreen(),        // 6
-    ManageProductsScreen(),    // 7
-    CreateEmployeeScreen(),    // 8
-    AdminProfileScreen(),      // 9
-    AdminSettingsScreen(),     // 10
-    AboutScreen(),             // 11
-    AdminOrdersScreen(),       // 12
-    BeatListScreen(),          // 13
-    AdminTargetsScreen(),      // 14
-    SchemeListScreen(),        // 15
-    AdminCollectionsScreen(),  // 16
-    AgingAnalysisScreen(),     // 17
-    OutstandingScreen(),       // 18
-    AdminPartiesScreen(),      // 19
+    AdminDashboardScreen(), // 0
+    EmployeeListScreen(), // 1
+    LiveMapScreen(), // 2
+    VisitAnalyticsScreen(), // 3
+    ExpenseApprovalScreen(), // 4
+    AdminAnalyticsScreen(), // 5
+    AssignTaskScreen(), // 6
+    ManageProductsScreen(), // 7
+    CreateEmployeeScreen(), // 8
+    AdminProfileScreen(), // 9
+    AdminSettingsScreen(), // 10
+    AboutScreen(), // 11
+    AdminOrdersScreen(), // 12
+    BeatListScreen(), // 13
+    AdminTargetsScreen(), // 14
+    SchemeListScreen(), // 15
+    AdminCollectionsScreen(), // 16
+    AgingAnalysisScreen(), // 17
+    OutstandingScreen(), // 18
+    AdminPartiesScreen(), // 19
     AdvancedAnalyticsScreen(), // 20
-    DistributorStockScreen(),  // 21  ← Sprint 7
+    DistributorStockScreen(), // 21  ← Sprint 7
+    AiCommandCenterScreen(),
   ];
 
   @override
@@ -165,8 +165,7 @@ class _AdminShellState extends State<AdminShell> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right,
-                      color: Colors.grey, size: 18),
+                  const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
                 ]),
               ),
             ),
@@ -190,6 +189,7 @@ class _AdminShellState extends State<AdminShell> {
                       _subItem(Icons.map, 'Live Map', 2),
                       _subItem(Icons.store, 'Visit Analytics', 3),
                       _subItem(Icons.route, 'Beat Plans', 13),
+                      _subItem(Icons.psychology, 'AI Command Center', 22),
                     ],
                   ),
 
@@ -200,18 +200,15 @@ class _AdminShellState extends State<AdminShell> {
                     color: Colors.green,
                     children: [
                       _subItem(Icons.shopping_cart, 'All Orders', 12),
-                      _subItem(Icons.local_offer_rounded,
-                          'Schemes & Offers', 15),
+                      _subItem(
+                          Icons.local_offer_rounded, 'Schemes & Offers', 15),
                       _subItem(Icons.payments_rounded, 'Collections', 16),
+                      _subItem(Icons.bar_chart_rounded, 'Aging Analysis', 17),
+                      _subItem(Icons.account_balance_wallet, 'Outstanding', 18),
                       _subItem(
-                          Icons.bar_chart_rounded, 'Aging Analysis', 17),
-                      _subItem(Icons.account_balance_wallet,
-                          'Outstanding', 18),
-                      _subItem(Icons.check_circle_outline,
-                          'Expense Approvals', 4),
+                          Icons.check_circle_outline, 'Expense Approvals', 4),
                       _subItem(Icons.analytics, 'Analytics Report', 5),
-                      _subItem(
-                          Icons.insights, 'Advanced Analytics', 20),
+                      _subItem(Icons.insights, 'Advanced Analytics', 20),
                     ],
                   ),
 
@@ -221,10 +218,10 @@ class _AdminShellState extends State<AdminShell> {
                     label: 'Inventory',
                     color: Colors.teal,
                     children: [
-                      _subItem(Icons.inventory_2_outlined,
-                          'Distributor Stock', 21),
-                      _subItem(Icons.manage_search_rounded,
-                          'Manage Products', 7),
+                      _subItem(
+                          Icons.inventory_2_outlined, 'Distributor Stock', 21),
+                      _subItem(
+                          Icons.manage_search_rounded, 'Manage Products', 7),
                     ],
                   ),
 
@@ -235,11 +232,9 @@ class _AdminShellState extends State<AdminShell> {
                     color: Colors.purple,
                     children: [
                       _subItem(Icons.person_add, 'Create Employee', 8),
-                      _subItem(
-                          Icons.people_alt, 'Manage Employees', 1),
+                      _subItem(Icons.people_alt, 'Manage Employees', 1),
                       _subItem(Icons.assignment, 'Assign Task', 6),
-                      _subItem(
-                          Icons.track_changes, 'Set Targets', 14),
+                      _subItem(Icons.track_changes, 'Set Targets', 14),
                     ],
                   ),
 
@@ -249,8 +244,7 @@ class _AdminShellState extends State<AdminShell> {
                     label: 'Account',
                     color: Colors.teal,
                     children: [
-                      _subItem(
-                          Icons.manage_accounts, 'My Profile', 9),
+                      _subItem(Icons.manage_accounts, 'My Profile', 9),
                       _subItem(Icons.settings, 'Settings', 10),
                     ],
                   ),
@@ -271,8 +265,7 @@ class _AdminShellState extends State<AdminShell> {
                       Navigator.pop(context);
                       await SupabaseService.client.auth.signOut();
                       if (mounted) {
-                        Navigator.pushReplacementNamed(
-                            context, '/login');
+                        Navigator.pushReplacementNamed(context, '/login');
                       }
                     },
                   ),
@@ -300,19 +293,16 @@ class _AdminShellState extends State<AdminShell> {
     final isActive = _currentIndex == index;
     return ListTile(
       dense: true,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      leading: Icon(icon,
-          color: isActive ? Colors.blue : Colors.grey, size: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      leading:
+          Icon(icon, color: isActive ? Colors.blue : Colors.grey, size: 20),
       title: Text(label,
           style: TextStyle(
               color: isActive ? Colors.white : Colors.grey,
-              fontWeight:
-                  isActive ? FontWeight.bold : FontWeight.normal,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               fontSize: 14)),
-      tileColor: isActive
-          ? Colors.blue.withValues(alpha: 0.15)
-          : Colors.transparent,
+      tileColor:
+          isActive ? Colors.blue.withValues(alpha: 0.15) : Colors.transparent,
       onTap: () => _navigate(index),
     );
   }
@@ -324,8 +314,7 @@ class _AdminShellState extends State<AdminShell> {
     required List<Widget> children,
   }) {
     return Theme(
-      data: Theme.of(context)
-          .copyWith(dividerColor: Colors.transparent),
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         leading: Icon(icon, color: color, size: 20),
         title: Text(label,
@@ -345,24 +334,17 @@ class _AdminShellState extends State<AdminShell> {
     final isActive = _currentIndex == index;
     return ListTile(
       dense: true,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       leading: Icon(icon,
           size: 18,
-          color: isActive
-              ? Colors.blue.shade300
-              : Colors.grey.shade600),
+          color: isActive ? Colors.blue.shade300 : Colors.grey.shade600),
       title: Text(label,
           style: TextStyle(
               fontSize: 13,
-              color: isActive
-                  ? Colors.blue.shade300
-                  : Colors.grey.shade400,
-              fontWeight:
-                  isActive ? FontWeight.w600 : FontWeight.normal)),
-      tileColor: isActive
-          ? Colors.blue.withValues(alpha: 0.1)
-          : Colors.transparent,
+              color: isActive ? Colors.blue.shade300 : Colors.grey.shade400,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
+      tileColor:
+          isActive ? Colors.blue.withValues(alpha: 0.1) : Colors.transparent,
       onTap: () => _navigate(index),
     );
   }

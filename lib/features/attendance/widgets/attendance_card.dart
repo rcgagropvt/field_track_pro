@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/services/tracking_service.dart';
 
 class AttendanceCard extends StatefulWidget {
   const AttendanceCard({super.key});
@@ -89,6 +90,13 @@ class _AttendanceCardState extends State<AttendanceCard> {
 
       await _loadAttendance();
       _showSnack('Checked in successfully!');
+      // Auto-start location tracking
+      try {
+        await TrackingService.startTracking();
+      } catch (_) {}
+      try {
+        await TrackingService.startTracking();
+      } catch (_) {}
     } catch (e) {
       _showSnack('Check-in failed. Please try again.', isError: true);
     } finally {
@@ -140,6 +148,14 @@ class _AttendanceCardState extends State<AttendanceCard> {
 
       await _loadAttendance();
       _showSnack('Checked out! Good job today.');
+      // Auto-stop location tracking
+      try {
+        await TrackingService.stopTracking();
+      } catch (_) {}
+
+      try {
+        await TrackingService.stopTracking();
+      } catch (_) {}
     } catch (e) {
       _showSnack('Check-out failed. Please try again.', isError: true);
     } finally {
@@ -389,5 +405,3 @@ class _AttendanceCardState extends State<AttendanceCard> {
     );
   }
 }
-
-
