@@ -380,6 +380,22 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
 
       if (mounted) {
         _showSnack('Order $orderNumber placed successfully!');
+
+        // Award XP + loyalty
+        try {
+          await SupabaseService.client.rpc('award_xp', params: {
+            'p_user_id': SupabaseService.userId,
+            'p_action': 'order_placed',
+            'p_description': 'Order at ${widget.party['name']}',
+            'p_reference_id': orderId,
+          });
+          await SupabaseService.client.rpc('award_loyalty_points', params: {
+            'p_party_id': widget.party['id'],
+            'p_order_amount': _totalAmount,
+            'p_reference_id': orderId,
+          });
+        } catch (_) {}
+
         await Future.delayed(const Duration(milliseconds: 800));
         Navigator.pop(context, {
           'order_id': orderId,

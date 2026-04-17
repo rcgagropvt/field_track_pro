@@ -317,6 +317,24 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
       setState(() => _status = 'completed');
       _showSnack('Visit completed successfully!');
 
+      // Award XP
+      try {
+        await SupabaseService.client.rpc('award_xp', params: {
+          'p_user_id': SupabaseService.userId,
+          'p_action': 'visit_completed',
+          'p_description': 'Visit to ${widget.party['name']}',
+          'p_reference_id':
+              _visitId?.startsWith('offline_') == true ? null : _visitId,
+        });
+        if (_photoUrls.isNotEmpty) {
+          await SupabaseService.client.rpc('award_xp', params: {
+            'p_user_id': SupabaseService.userId,
+            'p_action': 'photo_proof',
+            'p_description': 'Photo proof at ${widget.party['name']}',
+          });
+        }
+      } catch (_) {}
+
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) Navigator.pop(context, true);
     } catch (e) {

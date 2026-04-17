@@ -18,6 +18,7 @@ import '../../collections/screens/outstanding_screen.dart';
 import '../../collections/screens/aging_analysis_screen.dart';
 import '../../crm/screens/crm_screen.dart';
 import '../../parties/screens/smart_planner_screen.dart';
+import '../../gamification/screens/gamification_screen.dart';
 
 // NOTE: PartyLedgerScreen requires a partyId argument — navigate to it
 // from PartiesScreen or OutstandingScreen as a drill-down, not from
@@ -162,6 +163,14 @@ class _MainShellState extends State<MainShell> {
                         MaterialPageRoute(
                             builder: (_) => const SmartPlannerScreen()));
                   }),
+                  _drawerItem(Icons.emoji_events, 'Leaderboard & XP', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const GamificationScreen()));
+                  }),
+
                   const Divider(),
 
                   _drawerItem(Icons.track_changes, 'My Targets', () {
