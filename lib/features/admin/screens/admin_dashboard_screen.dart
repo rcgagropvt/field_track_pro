@@ -599,7 +599,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               style:
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           subtitle: Text(
-              '${p['total_visits']} visits · ${p['converted_leads']} deals · ${p['attendance_days']} days present',
+              '${p['total_visits']} visits · ${p['total_orders']} orders · ₹${p['total_revenue']?.toStringAsFixed(0) ?? '0'} · ${p['attendance_days']}d present',
               style: const TextStyle(fontSize: 11)),
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
