@@ -5,10 +5,6 @@ import '../../../core/services/supabase_service.dart';
 import '../../visits/screens/start_visit_screen.dart';
 import 'party_profile_screen.dart';
 
-/// Replace every:
-///   Navigator.push(... PartyProfileScreen(party: p))
-/// in rep-facing screens with:
-///   showPartyActionSheet(context, party: p)
 Future<void> showPartyActionSheet(
   BuildContext context, {
   required Map<String, dynamic> party,
@@ -43,11 +39,14 @@ class _PartyActionSheet extends StatefulWidget {
 class _PartyActionSheetState extends State<_PartyActionSheet> {
   double _outstanding = 0;
   bool _loadingOutstanding = true;
+  Map<String, dynamic>? _activeVisit;
+  bool _loadingVisit = true;
 
   @override
   void initState() {
     super.initState();
     _fetchOutstanding();
+    _checkActiveVisit();
   }
 
   Future<void> _fetchOutstanding() async {
@@ -56,21 +55,56 @@ class _PartyActionSheetState extends State<_PartyActionSheet> {
           .from('invoices')
           .select('balance, status')
           .eq('party_id', widget.party['id'] as String);
-      final total = (rows as List).fold<double>(0, (s, i) =>
-          i['status'] != 'paid' ? s + ((i['balance'] as num?)?.toDouble() ?? 0) : s);
-      if (mounted) setState(() { _outstanding = total; _loadingOutstanding = false; });
+      final total = (rows as List).fold<double>(
+          0,
+          (s, i) => i['status'] != 'paid'
+              ? s + ((i['balance'] as num?)?.toDouble() ?? 0)
+              : s);
+      if (mounted)
+        setState(() {
+          _outstanding = total;
+          _loadingOutstanding = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loadingOutstanding = false);
     }
   }
 
+  Future<void> _checkActiveVisit() async {
+    try {
+      final userId = SupabaseService.userId;
+      if (userId == null) {
+        if (mounted) setState(() => _loadingVisit = false);
+        return;
+      }
+      final res = await SupabaseService.client
+          .from('visits')
+          .select()
+          .eq('user_id', userId)
+          .eq('party_id', widget.party['id'] as String)
+          .eq('status', 'in_progress')
+          .order('check_in_time', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      if (mounted)
+        setState(() {
+          _activeVisit = res;
+          _loadingVisit = false;
+        });
+    } catch (e) {
+      debugPrint('Active visit check error: $e');
+      if (mounted) setState(() => _loadingVisit = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final party  = widget.party;
-    final name   = (party['name'] ?? 'Party') as String;
-    final phone  = party['phone'] as String?;
-    final city   = party['city'] as String?;
-    final type   = (party['type'] ?? 'party').toString().toUpperCase();
+    final party = widget.party;
+    final name = (party['name'] ?? 'Party') as String;
+    final phone = party['phone'] as String?;
+    final city = party['city'] as String?;
+    final type = (party['type'] ?? 'party').toString().toUpperCase();
+    final hasActiveVisit = _activeVisit != null;
 
     return Container(
       decoration: const BoxDecoration(
@@ -82,17 +116,17 @@ class _PartyActionSheetState extends State<_PartyActionSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Handle bar ──────────────────────────────
             Container(
               margin: const EdgeInsets.only(top: 12),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                   color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 16),
 
-            // ── Party identity strip ────────────────────
+            // Party identity strip
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(children: [
@@ -133,68 +167,134 @@ class _PartyActionSheetState extends State<_PartyActionSheet> {
                     ],
                   ),
                 ),
-                // Outstanding badge (right corner)
                 _loadingOutstanding
                     ? const SizedBox(
-                        width: 16, height: 16,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Text('Outstanding',
-                            style: TextStyle(
-                                fontSize: 10, color: Colors.grey.shade400)),
-                        Text(
-                          '₹${_fmtShort(_outstanding)}',
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: _outstanding > 0
-                                  ? Colors.orange.shade700
-                                  : Colors.green),
-                        ),
-                      ]),
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                            Text('Outstanding',
+                                style: TextStyle(
+                                    fontSize: 10, color: Colors.grey.shade400)),
+                            Text(
+                              '₹${_fmtShort(_outstanding)}',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: _outstanding > 0
+                                      ? Colors.orange.shade700
+                                      : Colors.green),
+                            ),
+                          ]),
               ]),
             ),
 
             const SizedBox(height: 20),
+
+            // Active visit banner
+            if (!_loadingVisit && hasActiveVisit) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.timer_outlined,
+                        color: Colors.orange.shade700, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Visit in progress',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.orange.shade800),
+                          ),
+                          Text(
+                            'Checked in at ${_formatTime(_activeVisit!['check_in_time'])}',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.orange.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
             const Divider(height: 1),
             const SizedBox(height: 14),
 
-            // ── PRIMARY: Start Visit ────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => StartVisitScreen(party: party)),
-                    );
-                    widget.onActionCompleted?.call();
-                  },
-                  icon: const Icon(Icons.directions_walk_rounded,
-                      color: Colors.white, size: 20),
-                  label: const Text('Start Visit',
-                      style: TextStyle(
+            // PRIMARY BUTTON: Continue Visit or Start Visit
+            if (_loadingVisit)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                    child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2))),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StartVisitScreen(
+                            party: party,
+                            existingVisit: hasActiveVisit ? _activeVisit : null,
+                          ),
+                        ),
+                      );
+                      widget.onActionCompleted?.call();
+                    },
+                    icon: Icon(
+                      hasActiveVisit
+                          ? Icons.play_arrow_rounded
+                          : Icons.directions_walk_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    label: Text(
+                      hasActiveVisit ? 'Continue Visit' : 'Start Visit',
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
-                          fontWeight: FontWeight.w700)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: hasActiveVisit
+                          ? Colors.orange.shade700
+                          : AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
                   ),
                 ),
               ),
-            ),
 
             const SizedBox(height: 10),
 
-            // ── SECONDARY ROW: View Profile + Call ──────
+            // SECONDARY ROW: View Profile + Call
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(children: [
@@ -241,6 +341,18 @@ class _PartyActionSheetState extends State<_PartyActionSheet> {
         ),
       ),
     );
+  }
+
+  String _formatTime(dynamic timestamp) {
+    if (timestamp == null) return '';
+    try {
+      final dt = DateTime.parse(timestamp.toString()).toLocal();
+      final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+      final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+      return '${hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} $amPm';
+    } catch (_) {
+      return '';
+    }
   }
 
   Widget _typePill(String type) => Container(
@@ -296,9 +408,7 @@ class _SecondaryBtn extends StatelessWidget {
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
+                      color: color, fontWeight: FontWeight.w600, fontSize: 14)),
             ],
           ),
         ),

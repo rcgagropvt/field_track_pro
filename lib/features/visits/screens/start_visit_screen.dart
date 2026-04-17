@@ -18,7 +18,8 @@ import '../../orders/screens/ai_suggested_order_screen.dart';
 
 class StartVisitScreen extends StatefulWidget {
   final Map<String, dynamic> party;
-  const StartVisitScreen({super.key, required this.party});
+  final Map<String, dynamic>? existingVisit;
+  const StartVisitScreen({super.key, required this.party, this.existingVisit});
 
   @override
   State<StartVisitScreen> createState() => _StartVisitScreenState();
@@ -45,6 +46,52 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
   final _picker = ImagePicker();
   bool _isLoading = false;
   bool _isOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnectivity();
+    if (widget.existingVisit != null) {
+      _resumeVisit();
+    }
+  }
+
+  void _resumeVisit() {
+    final v = widget.existingVisit!;
+    final checkInTime = DateTime.tryParse(v['check_in_time']?.toString() ?? '');
+
+    setState(() {
+      _visitId = v['id'] as String?;
+      _status = 'in_progress';
+      _checkInTime = checkInTime;
+      _checkInSelfie = v['check_in_selfie'] as String?;
+      _purpose = (v['purpose'] as String?) ?? 'sales';
+      _notesCtrl.text = (v['discussion_notes'] as String?) ?? '';
+      _feedbackCtrl.text = (v['feedback'] as String?) ?? '';
+
+      // Restore photos if any
+      final photos = v['photos'];
+      if (photos is List) {
+        _photoUrls.addAll(photos.map((e) => e.toString()));
+      }
+
+      // Restore order value if present
+      final orderVal = v['order_value'];
+      if (orderVal != null && orderVal != 0) {
+        _orderValueCtrl.text = (orderVal as num).toStringAsFixed(2);
+      }
+
+      // Calculate elapsed duration since check-in
+      if (checkInTime != null) {
+        _durationSeconds = DateTime.now().difference(checkInTime).inSeconds;
+      }
+    });
+
+    // Start the duration timer
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _durationSeconds++);
+    });
+  }
 
   // FIX: connectivity_plus v5 emits List<ConnectivityResult>
   Future<bool> _checkConnectivity() async {

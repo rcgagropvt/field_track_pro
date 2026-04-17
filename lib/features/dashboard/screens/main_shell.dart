@@ -19,6 +19,8 @@ import '../../collections/screens/aging_analysis_screen.dart';
 import '../../crm/screens/crm_screen.dart';
 import '../../parties/screens/smart_planner_screen.dart';
 import '../../gamification/screens/gamification_screen.dart';
+import '../../../core/services/supabase_service.dart';
+import '../../visits/screens/start_visit_screen.dart';
 
 // NOTE: PartyLedgerScreen requires a partyId argument — navigate to it
 // from PartiesScreen or OutstandingScreen as a drill-down, not from
@@ -33,6 +35,8 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  Map<String, dynamic>? _activeVisit;
+  Map<String, dynamic>? _activeVisitParty;
 
   final _screens = const [
     DashboardScreen(),
@@ -43,11 +47,137 @@ class _MainShellState extends State<MainShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _checkActiveVisit();
+  }
+
+  Future<void> _checkActiveVisit() async {
+    try {
+      final userId = SupabaseService.userId;
+      if (userId == null) return;
+      final visit = await SupabaseService.client
+          .from('visits')
+          .select()
+          .eq('user_id', userId)
+          .eq('status', 'in_progress')
+          .order('check_in_time', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      if (visit != null && mounted) {
+        // Fetch the party data
+        Map<String, dynamic>? party;
+        final partyId = visit['party_id'];
+        if (partyId != null) {
+          party = await SupabaseService.client
+              .from('parties')
+              .select()
+              .eq('id', partyId)
+              .maybeSingle();
+        }
+        // Fallback: build party from visit data if party table lookup fails
+        party ??= {
+          'id': visit['party_id'],
+          'name': visit['party_name'] ?? 'Unknown Party',
+          'address': visit['party_address'] ?? '',
+        };
+        if (mounted) {
+          setState(() {
+            _activeVisit = visit;
+            _activeVisitParty = party;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Active visit check error: $e');
+    }
+  }
+
+  void _navigateToActiveVisit() {
+    if (_activeVisit == null || _activeVisitParty == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StartVisitScreen(
+          party: _activeVisitParty!,
+          existingVisit: _activeVisit,
+        ),
+      ),
+    ).then((_) {
+      // Re-check after returning
+      setState(() {
+        _activeVisit = null;
+        _activeVisitParty = null;
+      });
+      _checkActiveVisit();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
           const SyncStatusBanner(),
+          // Active visit banner
+          if (_activeVisit != null)
+            GestureDetector(
+              onTap: _navigateToActiveVisit,
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.orange.shade600, Colors.orange.shade800],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer, color: Colors.white, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Visit in progress — ${_activeVisit!['party_name'] ?? 'Unknown'}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            _formatCheckInTime(_activeVisit!['check_in_time']),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Continue',
+                        style: TextStyle(
+                          color: Colors.orange.shade800,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Expanded(
             child: IndexedStack(
               index: _currentIndex,
@@ -85,6 +215,22 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
     );
+  }
+
+  String _formatCheckInTime(dynamic timestamp) {
+    if (timestamp == null) return '';
+    try {
+      final dt = DateTime.parse(timestamp.toString()).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      final hours = diff.inHours;
+      final mins = diff.inMinutes % 60;
+      final timeStr =
+          '${dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour)}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour >= 12 ? 'PM' : 'AM'}';
+      return 'Checked in at $timeStr (${hours}h ${mins}m ago)';
+    } catch (_) {
+      return '';
+    }
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
