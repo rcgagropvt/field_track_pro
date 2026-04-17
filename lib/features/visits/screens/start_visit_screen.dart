@@ -14,7 +14,7 @@ import '../../../core/services/whatsapp_service.dart';
 import '../../../core/services/geofence_service.dart';
 import '../../../router/app_router.dart';
 import '../../orders/screens/order_booking_screen.dart';
-
+import '../../orders/screens/ai_suggested_order_screen.dart';
 
 class StartVisitScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -23,7 +23,6 @@ class StartVisitScreen extends StatefulWidget {
   @override
   State<StartVisitScreen> createState() => _StartVisitScreenState();
 }
-
 
 class _StartVisitScreenState extends State<StartVisitScreen> {
   String _status = 'not_started';
@@ -117,8 +116,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style:
-                    ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 child: const Text('Check In Anyway'),
               ),
             ],
@@ -228,9 +226,8 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
       await SupabaseService.client.storage
           .from('uploads')
           .uploadBinary(fileName, bytes);
-      final url = SupabaseService.client.storage
-          .from('uploads')
-          .getPublicUrl(fileName);
+      final url =
+          SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
       setState(() => _photoUrls.add(url));
       _showSnack('Photo added');
     } catch (e) {
@@ -364,8 +361,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
           if (_isOffline)
             Container(
               margin: const EdgeInsets.only(right: 8),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
@@ -380,8 +376,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
           if (_status == 'in_progress')
             Container(
               margin: const EdgeInsets.only(right: 12),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppColors.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
@@ -491,11 +486,9 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                       ].map((p) {
                         final selected = _purpose == p;
                         return ChoiceChip(
-                          label: Text(
-                              p.replaceAll('_', ' ').toUpperCase()),
+                          label: Text(p.replaceAll('_', ' ').toUpperCase()),
                           selected: selected,
-                          onSelected: (_) =>
-                              setState(() => _purpose = p),
+                          onSelected: (_) => setState(() => _purpose = p),
                           selectedColor: AppColors.primary,
                           backgroundColor: AppColors.primarySurface,
                           labelStyle: TextStyle(
@@ -522,8 +515,8 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                         Expanded(
                           child: Text(
                             'You will need to take a selfie and allow GPS access to start this visit.',
-                            style: TextStyle(
-                                fontSize: 13, color: AppColors.info),
+                            style:
+                                TextStyle(fontSize: 13, color: AppColors.info),
                           ),
                         ),
                       ]),
@@ -563,8 +556,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                                         .format(_checkInTime!)
                                     : '',
                                 style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.success),
+                                    fontSize: 12, color: AppColors.success),
                               ),
                             ],
                           ),
@@ -609,8 +601,8 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                                   'Order ${result['order_number']} placed!');
                             }
                           },
-                          icon: const Icon(Icons.shopping_cart_rounded,
-                              size: 18),
+                          icon:
+                              const Icon(Icons.shopping_cart_rounded, size: 18),
                           label: const Text('Book Order'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -621,17 +613,61 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CustomTextField(
-                          controller: _orderValueCtrl,
-                          label: 'Order Value (₹)',
-                          prefixIcon: Icons.currency_rupee_rounded,
-                          keyboardType: TextInputType.number,
-                          readOnly: true,
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 46,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final aiItems = await Navigator.push<
+                                List<Map<String, dynamic>>>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    AiSuggestedOrderScreen(party: widget.party),
+                              ),
+                            );
+                            if (aiItems != null &&
+                                aiItems.isNotEmpty &&
+                                mounted) {
+                              final result =
+                                  await Navigator.push<Map<String, dynamic>>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => OrderBookingScreen(
+                                    party: widget.party,
+                                    visitId: _visitId,
+                                    prefillItems: aiItems,
+                                  ),
+                                ),
+                              );
+                              if (result != null && mounted) {
+                                setState(() => _orderValueCtrl.text =
+                                    result['total'].toStringAsFixed(2));
+                                _showSnack(
+                                    'Order ${result['order_number']} placed!');
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.psychology, size: 18),
+                          label: const Text('AI'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6C63FF),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ),
                     ]),
+                    const SizedBox(height: 8),
+                    CustomTextField(
+                      controller: _orderValueCtrl,
+                      label: 'Order Value (₹)',
+                      prefixIcon: Icons.currency_rupee_rounded,
+                      keyboardType: TextInputType.number,
+                      readOnly: true,
+                    ),
 
                     // Stock Check button (Sprint 7)
                     const SizedBox(height: 12),
@@ -651,8 +687,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10)),
                         ),
@@ -685,12 +720,10 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                           .map((m) => DropdownMenuItem(
                                 value: m,
                                 child: Text(m.toUpperCase(),
-                                    style:
-                                        const TextStyle(fontSize: 14)),
+                                    style: const TextStyle(fontSize: 14)),
                               ))
                           .toList(),
-                      onChanged: (v) =>
-                          setState(() => _paymentMode = v!),
+                      onChanged: (v) => setState(() => _paymentMode = v!),
                     ),
                     const SizedBox(height: 16),
 
@@ -705,9 +738,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                         ..._photoUrls.map((url) => ClipRRect(
                               borderRadius: BorderRadius.circular(10),
                               child: Image.network(url,
-                                  width: 70,
-                                  height: 70,
-                                  fit: BoxFit.cover),
+                                  width: 70, height: 70, fit: BoxFit.cover),
                             )),
                         GestureDetector(
                           onTap: _takePhoto,
@@ -717,8 +748,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                             decoration: BoxDecoration(
                               color: AppColors.primarySurface,
                               borderRadius: BorderRadius.circular(10),
-                              border:
-                                  Border.all(color: AppColors.primary),
+                              border: Border.all(color: AppColors.primary),
                             ),
                             child: const Icon(Icons.add_a_photo_rounded,
                                 color: AppColors.primary),
@@ -751,11 +781,9 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                       ].map((o) {
                         final selected = _outcome == o;
                         return ChoiceChip(
-                          label: Text(
-                              o.replaceAll('_', ' ').toUpperCase()),
+                          label: Text(o.replaceAll('_', ' ').toUpperCase()),
                           selected: selected,
-                          onSelected: (_) =>
-                              setState(() => _outcome = o),
+                          onSelected: (_) => setState(() => _outcome = o),
                           selectedColor: AppColors.primary,
                           backgroundColor: AppColors.primarySurface,
                           labelStyle: TextStyle(
@@ -777,8 +805,7 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
                     Row(
                       children: List.generate(5, (i) {
                         return GestureDetector(
-                          onTap: () =>
-                              setState(() => _rating = i + 1),
+                          onTap: () => setState(() => _rating = i + 1),
                           child: Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: Icon(

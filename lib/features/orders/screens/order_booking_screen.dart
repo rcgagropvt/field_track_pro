@@ -14,11 +14,13 @@ import '../../../core/services/collection_service.dart';
 class OrderBookingScreen extends StatefulWidget {
   final Map<String, dynamic> party;
   final String? visitId;
+  final List<Map<String, dynamic>>? prefillItems;
 
   const OrderBookingScreen({
     super.key,
     required this.party,
     this.visitId,
+    this.prefillItems,
   });
 
   @override
@@ -38,6 +40,12 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
   void initState() {
     super.initState();
     _checkConnectivity();
+    // Pre-fill AI suggested items
+    if (widget.prefillItems != null && widget.prefillItems!.isNotEmpty) {
+      _cartItems.addAll(widget.prefillItems!);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _applySchemes());
+    }
+
     Connectivity().onConnectivityChanged.listen((result) {
       if (mounted) {
         setState(() => _isOffline = result == ConnectivityResult.none);
@@ -263,7 +271,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Credit Limit: ₹${creditCheck['limit']}'),
-                Text('Outstanding: ₹${creditCheck['outstanding'].toStringAsFixed(0)}'),
+                Text(
+                    'Outstanding: ₹${creditCheck['outstanding'].toStringAsFixed(0)}'),
                 Text('This Order: ₹${_totalAmount.toStringAsFixed(0)}'),
                 const SizedBox(height: 8),
                 Text(
@@ -280,8 +289,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 child: const Text('Override & Place'),
               ),
             ],
@@ -329,19 +337,21 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       final orderNumber = orderResult['order_number'] as String;
 
       await SupabaseService.client.from('order_items').insert(
-        _cartItems.map((item) => {
-          'order_id': orderId,
-          'product_id': item['product_id'],
-          'product_name': item['product_name'],
-          'product_sku': item['product_sku'],
-          'unit': item['unit'],
-          'quantity': item['quantity'],
-          'unit_price': item['unit_price'],
-          'discount_percent': item['discount_percent'],
-          'tax_percent': item['tax_percent'],
-          'line_total': item['line_total'],
-        }).toList(),
-      );
+            _cartItems
+                .map((item) => {
+                      'order_id': orderId,
+                      'product_id': item['product_id'],
+                      'product_name': item['product_name'],
+                      'product_sku': item['product_sku'],
+                      'unit': item['unit'],
+                      'quantity': item['quantity'],
+                      'unit_price': item['unit_price'],
+                      'discount_percent': item['discount_percent'],
+                      'tax_percent': item['tax_percent'],
+                      'line_total': item['line_total'],
+                    })
+                .toList(),
+          );
 
       await CollectionService.createInvoiceForOrder(
         orderId: orderId,
@@ -361,8 +371,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
         );
       }
 
-      if (widget.visitId != null &&
-          !widget.visitId!.startsWith('offline_')) {
+      if (widget.visitId != null && !widget.visitId!.startsWith('offline_')) {
         await SupabaseService.client.from('visits').update({
           'order_value': _totalAmount,
           'updated_at': DateTime.now().toIso8601String(),
@@ -410,8 +419,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
           if (_isOffline)
             Container(
               margin: const EdgeInsets.only(right: 8),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
@@ -420,16 +428,15 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 Icon(Icons.cloud_off, size: 14, color: Colors.orange),
                 SizedBox(width: 4),
                 Text('Offline',
-                    style:
-                        TextStyle(color: Colors.orange, fontSize: 12)),
+                    style: TextStyle(color: Colors.orange, fontSize: 12)),
               ]),
             ),
           if (_cartItems.isNotEmpty)
             Center(
               child: Container(
                 margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.primarySurface,
                   borderRadius: BorderRadius.circular(20),
@@ -505,8 +512,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                       const SizedBox(height: 4),
                       const Text('Tap + to add products',
                           style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textTertiary)),
+                              fontSize: 13, color: AppColors.textTertiary)),
                     ],
                   ),
                 )
@@ -546,9 +552,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(item['product_name'] ?? '',
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w600)),
@@ -573,8 +578,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              _qtyButton(Icons.remove,
-                  () => _updateQuantity(index, qty - 1)),
+              _qtyButton(Icons.remove, () => _updateQuantity(index, qty - 1)),
               Container(
                 width: 44,
                 alignment: Alignment.center,
@@ -583,8 +587,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                     style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w700)),
               ),
-              _qtyButton(Icons.add,
-                  () => _updateQuantity(index, qty + 1)),
+              _qtyButton(Icons.add, () => _updateQuantity(index, qty + 1)),
             ]),
           ),
           const SizedBox(width: 12),
@@ -597,15 +600,13 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Disc%',
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 6),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
               controller: TextEditingController(
                   text: discPct > 0 ? discPct.toStringAsFixed(1) : ''),
-              onChanged: (v) =>
-                  _updateDiscount(index, double.tryParse(v) ?? 0),
+              onChanged: (v) => _updateDiscount(index, double.tryParse(v) ?? 0),
             ),
           ),
           const Spacer(),
@@ -650,15 +651,14 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
             const Text('Payment:',
-                style: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             const SizedBox(width: 10),
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['credit', 'cash', 'upi', 'cheque', 'online']
-                      .map((mode) {
+                  children:
+                      ['credit', 'cash', 'upi', 'cheque', 'online'].map((mode) {
                     final isSelected = _paymentMode == mode;
                     return Padding(
                       padding: const EdgeInsets.only(right: 6),
@@ -674,8 +674,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                           ),
                         ),
                         selected: isSelected,
-                        onSelected: (_) =>
-                            setState(() => _paymentMode = mode),
+                        onSelected: (_) => setState(() => _paymentMode = mode),
                         selectedColor: AppColors.primary,
                         backgroundColor: AppColors.primarySurface,
                         side: BorderSide.none,
@@ -695,8 +694,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               hintText: 'Order notes (optional)',
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
           const SizedBox(height: 12),
@@ -714,8 +713,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 4),
                   child: Row(children: [
-                    Icon(Icons.local_offer,
-                        size: 13, color: Colors.green),
+                    Icon(Icons.local_offer, size: 13, color: Colors.green),
                     SizedBox(width: 6),
                     Text('Applied Schemes',
                         style: TextStyle(
@@ -730,11 +728,9 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                         Expanded(
                           child: Text(s.description,
                               style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black54)),
+                                  fontSize: 12, color: Colors.black54)),
                         ),
-                        Text(
-                            '- ₹${s.discountAmount.toStringAsFixed(0)}',
+                        Text('- ₹${s.discountAmount.toStringAsFixed(0)}',
                             style: const TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.w600,
@@ -751,13 +747,11 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
           if (_isOffline)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.4)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
               ),
               child: const Row(children: [
                 Icon(Icons.cloud_off, size: 14, color: Colors.orange),
@@ -765,8 +759,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 Expanded(
                   child: Text(
                     'Offline — order will sync when connected',
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.orange),
+                    style: TextStyle(fontSize: 12, color: Colors.orange),
                   ),
                 ),
               ]),
@@ -777,9 +770,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 : 'Place Order  •  ₹${_totalAmount.toStringAsFixed(0)}',
             onPressed: _submitOrder,
             isLoading: _isSubmitting,
-            icon: _isOffline
-                ? Icons.save_rounded
-                : Icons.check_circle_rounded,
+            icon: _isOffline ? Icons.save_rounded : Icons.check_circle_rounded,
           ),
         ]),
       ),
@@ -795,20 +786,14 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
           Text(label,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight:
-                    isBold ? FontWeight.w700 : FontWeight.w400,
-                color: isBold
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+                color: isBold ? AppColors.textPrimary : AppColors.textSecondary,
               )),
           Text(value,
               style: TextStyle(
                 fontSize: isBold ? 16 : 13,
-                fontWeight:
-                    isBold ? FontWeight.w700 : FontWeight.w500,
-                color: isBold
-                    ? AppColors.primary
-                    : AppColors.textPrimary,
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+                color: isBold ? AppColors.primary : AppColors.textPrimary,
               )),
         ],
       ),
