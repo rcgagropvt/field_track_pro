@@ -121,7 +121,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             // Movement trails (polylines)
             if (_showTrails)
               PolylineLayer(
-                  polylines: _trails.entries.map((entry) {
+                  polylines: _trails.entries
+                      .where((entry) => entry.value.length >= 2)
+                      .map((entry) {
                 final isOnline = _locations.any(
                     (l) => l['user_id'] == entry.key && l['is_online'] == true);
                 return Polyline(
@@ -507,5 +509,3 @@ class _TriangleClipper extends CustomClipper<ui.Path> {
   @override
   bool shouldReclip(covariant CustomClipper<ui.Path> oldClipper) => false;
 }
-
-

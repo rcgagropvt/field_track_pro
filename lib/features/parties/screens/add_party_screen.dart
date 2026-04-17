@@ -113,7 +113,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error: \$e'), backgroundColor: AppColors.error),
+              content: Text('Error: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -298,7 +298,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                     Expanded(
                       child: Text(
                         _useCurrentLocation
-                            ? 'Location captured (\${_lat!.toStringAsFixed(4)}, \${_lng!.toStringAsFixed(4)})'
+                            ? 'Location captured (${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)})'
                             : 'Tap to capture current GPS location',
                         style: TextStyle(
                           fontSize: 14,

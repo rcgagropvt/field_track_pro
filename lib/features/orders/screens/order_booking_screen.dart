@@ -160,7 +160,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
   Future<void> _submitOrderOffline() async {
     final orderId = const Uuid().v4();
     final orderNumber =
-        'ORD-OFF-\${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+        'ORD-OFF-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
     final orderData = {
       'id': orderId,
@@ -235,7 +235,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       try {
         await _submitOrderOffline();
       } catch (e) {
-        _showSnack('Offline save failed: \$e', isError: true);
+        _showSnack('Offline save failed: $e', isError: true);
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
       }
@@ -262,12 +262,12 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Credit Limit: ₹\${creditCheck['limit']}'),
-                Text('Outstanding: ₹\${creditCheck['outstanding'].toStringAsFixed(0)}'),
-                Text('This Order: ₹\${_totalAmount.toStringAsFixed(0)}'),
+                Text('Credit Limit: ₹${creditCheck['limit']}'),
+                Text('Outstanding: ₹${creditCheck['outstanding'].toStringAsFixed(0)}'),
+                Text('This Order: ₹${_totalAmount.toStringAsFixed(0)}'),
                 const SizedBox(height: 8),
                 Text(
-                  'Total ₹\${creditCheck['total'].toStringAsFixed(0)} exceeds by ₹\${(creditCheck['total'] - creditCheck['limit']).toStringAsFixed(0)}',
+                  'Total ₹${creditCheck['total'].toStringAsFixed(0)} exceeds by ₹${(creditCheck['total'] - creditCheck['limit']).toStringAsFixed(0)}',
                   style: const TextStyle(
                       fontWeight: FontWeight.w700, color: Colors.red),
                 ),
@@ -370,7 +370,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
       }
 
       if (mounted) {
-        _showSnack('Order \$orderNumber placed successfully!');
+        _showSnack('Order $orderNumber placed successfully!');
         await Future.delayed(const Duration(milliseconds: 800));
         Navigator.pop(context, {
           'order_id': orderId,
@@ -379,7 +379,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
         });
       }
     } catch (e) {
-      _showSnack('Error: \$e', isError: true);
+      _showSnack('Error: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -435,7 +435,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '\$_totalItems items',
+                  '$_totalItems items',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -553,7 +553,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w600)),
               Text(
-                '\${item['product_sku']}  •  ₹\${unitPrice.toStringAsFixed(2)} / \${item['unit']}',
+                '${item['product_sku']}  •  ₹${unitPrice.toStringAsFixed(2)} / ${item['unit']}',
                 style: const TextStyle(
                     fontSize: 11, color: AppColors.textTertiary),
               ),
@@ -579,7 +579,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                 width: 44,
                 alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text('\$qty',
+                child: Text('$qty',
                     style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w700)),
               ),
@@ -609,7 +609,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
             ),
           ),
           const Spacer(),
-          Text('₹\${lineTotal.toStringAsFixed(2)}',
+          Text('₹${lineTotal.toStringAsFixed(2)}',
               style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -707,8 +707,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Column(children: [
-              _summaryRow('Subtotal', '₹\${_subtotal.toStringAsFixed(2)}'),
-              _summaryRow('Tax', '₹\${_taxAmount.toStringAsFixed(2)}'),
+              _summaryRow('Subtotal', '₹${_subtotal.toStringAsFixed(2)}'),
+              _summaryRow('Tax', '₹${_taxAmount.toStringAsFixed(2)}'),
               if (_appliedSchemes.isNotEmpty) ...[
                 const Divider(),
                 const Padding(
@@ -734,7 +734,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                                   color: Colors.black54)),
                         ),
                         Text(
-                            '- ₹\${s.discountAmount.toStringAsFixed(0)}',
+                            '- ₹${s.discountAmount.toStringAsFixed(0)}',
                             style: const TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.w600,
@@ -743,7 +743,7 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
                     )),
               ],
               const Divider(),
-              _summaryRow('Total', '₹\${_totalAmount.toStringAsFixed(2)}',
+              _summaryRow('Total', '₹${_totalAmount.toStringAsFixed(2)}',
                   isBold: true),
             ]),
           ),
@@ -773,8 +773,8 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
             ),
           CustomButton(
             text: _isOffline
-                ? 'Save Order Offline  •  ₹\${_totalAmount.toStringAsFixed(0)}'
-                : 'Place Order  •  ₹\${_totalAmount.toStringAsFixed(0)}',
+                ? 'Save Order Offline  •  ₹${_totalAmount.toStringAsFixed(0)}'
+                : 'Place Order  •  ₹${_totalAmount.toStringAsFixed(0)}',
             onPressed: _submitOrder,
             isLoading: _isSubmitting,
             icon: _isOffline

@@ -54,7 +54,7 @@ class _DistributorStockScreenState extends State<DistributorStockScreen>
         });
       }
     } catch (e) {
-      debugPrint('DistributorStock load error: \$e');
+      debugPrint('DistributorStock load error: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -155,11 +155,11 @@ class _DistributorStockScreenState extends State<DistributorStockScreen>
           color: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(children: [
-            _kpiCard('Total SKUs', '\${_allEntries.length}', AppColors.primary),
+            _kpiCard('Total SKUs', '${_allEntries.length}', AppColors.primary),
             const SizedBox(width: 8),
-            _kpiCard('Stock-Outs', '\${counts["out_of_stock"]}', Colors.red),
+            _kpiCard('Stock-Outs', '${counts["out_of_stock"]}', Colors.red),
             const SizedBox(width: 8),
-            _kpiCard('Low Stock', '\${counts["low"]}', Colors.orange),
+            _kpiCard('Low Stock', '${counts["low"]}', Colors.orange),
           ]),
         ),
         Padding(
@@ -237,7 +237,7 @@ class _DistributorStockScreenState extends State<DistributorStockScreen>
           ),
           child: Center(
             child: Text(
-              '\$qty',
+              '$qty',
               style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -259,7 +259,7 @@ class _DistributorStockScreenState extends State<DistributorStockScreen>
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '\${party["name"] ?? ""} • \${party["city"] ?? ""}',
+                  '${party["name"] ?? ""} • ${party["city"] ?? ""}',
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textTertiary),
                   overflow: TextOverflow.ellipsis,
@@ -268,7 +268,7 @@ class _DistributorStockScreenState extends State<DistributorStockScreen>
             ]),
             const SizedBox(height: 2),
             Text(
-              'Rep: \${rep["full_name"] ?? "Unknown"} • Low at: \$threshold \${product["unit"] ?? "pcs"}',
+              'Rep: ${rep["full_name"] ?? "Unknown"} • Low at: $threshold ${product["unit"] ?? "pcs"}',
               style: const TextStyle(
                   fontSize: 11, color: AppColors.textTertiary),
             ),
@@ -317,7 +317,7 @@ class _DistributorStockScreenState extends State<DistributorStockScreen>
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
           color: color, borderRadius: BorderRadius.circular(10)),
-      child: Text('\$count',
+      child: Text('$count',
           style: const TextStyle(
               color: Colors.white,
               fontSize: 9,

@@ -36,10 +36,10 @@ void main() async {
     if (isOnline) {
       final pending = await OfflineQueueService.pendingCount();
       if (pending > 0) {
-        debugPrint('Connection restored — syncing \$pending offline record(s)...');
+        debugPrint('Connection restored — syncing $pending offline record(s)...');
         final r = await OfflineQueueService.sync();
         debugPrint(
-            'Auto-sync: \${r.synced} synced, \${r.failed} failed, \${r.conflicts} conflicts');
+            'Auto-sync: ${r.synced} synced, ${r.failed} failed, ${r.conflicts} conflicts');
       }
     }
   });

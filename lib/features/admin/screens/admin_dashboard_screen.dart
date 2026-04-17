@@ -10,6 +10,7 @@ import 'visit_analytics_screen.dart';
 import 'admin_shell.dart';
 import 'admin_orders_screen.dart';
 import '../../beats/screens/beat_list_screen.dart';
+import 'package:intl/intl.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -23,6 +24,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<Map<String, dynamic>> _leadPipeline = [];
   List<Map<String, dynamic>> _topPerformers = [];
   List<Map<String, dynamic>> _aiInsights = [];
+  List<Map<String, dynamic>> _geofenceViolations = [];
   bool _loading = true;
 
   @override
@@ -83,6 +85,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         });
     } catch (e) {
       debugPrint('Performance RPC missing: $e');
+    }
+    // Load geofence violations
+    try {
+      final violations = await SupabaseService.client
+          .from('visits')
+          .select(
+              'party_name, geofence_status, geofence_distance, check_in_time, user_id, profiles!inner(full_name)')
+          .eq('geofence_status', 'outside')
+          .order('check_in_time', ascending: false)
+          .limit(10);
+      if (mounted) {
+        setState(() => _geofenceViolations =
+            List<Map<String, dynamic>>.from(violations as List));
+      }
+    } catch (e) {
+      debugPrint('Geofence violations load error: $e');
     }
   }
 
@@ -206,6 +224,96 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _header('🤖 AI Insights', null),
                     const SizedBox(height: 8),
                     ..._aiInsights.map(_insightCard),
+                    const SizedBox(height: 20),
+                  ],
+                  if (_geofenceViolations.isNotEmpty) ...[
+                    _header('🚨 Geofence Violations', null),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: _cardBox(),
+                      child: Column(children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(14)),
+                          ),
+                          child: Row(children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                color: Colors.red, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_geofenceViolations.length} check-in${_geofenceViolations.length == 1 ? '' : 's'} outside allowed radius',
+                              style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13),
+                            ),
+                          ]),
+                        ),
+                        ...List.generate(
+                          _geofenceViolations.length,
+                          (i) {
+                            final v = _geofenceViolations[i];
+                            final repName =
+                                (v['profiles'] as Map?)?['full_name'] ??
+                                    'Unknown';
+                            final dist = v['geofence_distance'] as num?;
+                            final time = v['check_in_time'] != null
+                                ? DateFormat('dd MMM, hh:mm a').format(
+                                    DateTime.parse(
+                                            v['check_in_time'].toString())
+                                        .toLocal())
+                                : '';
+                            return ListTile(
+                              dense: true,
+                              leading: CircleAvatar(
+                                radius: 16,
+                                backgroundColor: Colors.red.shade100,
+                                child: Text(
+                                  repName[0].toUpperCase(),
+                                  style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
+                                ),
+                              ),
+                              title: Text(
+                                '$repName → ${v['party_name'] ?? ''}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '$time${dist != null ? ' · ${dist.toStringAsFixed(0)}m away' : ''}',
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey),
+                              ),
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border:
+                                      Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Text(
+                                  '${dist?.toStringAsFixed(0) ?? '?'}m',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade700),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ]),
+                    ),
                     const SizedBox(height: 20),
                   ],
                   _header('📊 Visit Activity — Last 7 Days',
@@ -593,5 +701,3 @@ class _A {
   final VoidCallback onTap;
   _A(this.label, this.icon, this.color, this.onTap);
 }
-
-

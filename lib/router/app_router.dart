@@ -156,7 +156,7 @@ class AppRouter {
         return _fadeRoute(
           Scaffold(
             body: Center(
-                child: Text('Route not found: \${settings.name}')),
+                child: Text('Route not found: ${settings.name}')),
           ),
         );
     }

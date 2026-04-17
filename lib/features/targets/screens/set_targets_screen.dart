@@ -67,7 +67,7 @@ class _SetTargetsScreenState extends State<SetTargetsScreen> {
         _partiesCtrl.clear();
       }
     } catch (e) {
-      debugPrint('Load target error: \$e');
+      debugPrint('Load target error: $e');
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -99,7 +99,7 @@ class _SetTargetsScreenState extends State<SetTargetsScreen> {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Target set for \$_selectedUserName - \${_months[_selectedMonth]} \$_selectedYear'),
+            content: Text('Target set for $_selectedUserName - ${_months[_selectedMonth]} $_selectedYear'),
             backgroundColor: Colors.green,
           ),
         );
@@ -108,7 +108,7 @@ class _SetTargetsScreenState extends State<SetTargetsScreen> {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: \$e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }

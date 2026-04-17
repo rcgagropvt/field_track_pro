@@ -210,6 +210,11 @@ class _VisitAnalyticsScreenState extends State<VisitAnalyticsScreen> {
                 'Customers',
                 '${visits.map((v) => v['customer_name']).toSet().length}',
                 Colors.purple),
+            _kvDivider(),
+            _kpi(
+                'Geofence\nViolations',
+                '${visits.where((v) => v['geofence_status'] == 'outside').length}',
+                Colors.red),
           ]),
         ),
         // Visit list
@@ -279,6 +284,31 @@ class _VisitAnalyticsScreenState extends State<VisitAnalyticsScreen> {
           padding: const EdgeInsets.all(14),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Geofence badge
+            if (v['geofence_status'] == 'outside')
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 16, color: Colors.red),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Outside Geofence — ${v['geofence_distance'] != null ? '${(v['geofence_distance'] as num).toStringAsFixed(0)}m away' : 'distance unknown'}',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red),
+                  ),
+                ]),
+              ),
+
             Row(children: [
               Container(
                   padding: const EdgeInsets.all(10),
@@ -503,6 +533,18 @@ class _VisitAnalyticsScreenState extends State<VisitAnalyticsScreen> {
                 v['duration_minutes'] != null
                     ? '${v['duration_minutes']} minutes'
                     : 'N/A'),
+            if (v['geofence_status'] != null)
+              _detailRow(
+                v['geofence_status'] == 'outside'
+                    ? Icons.location_off
+                    : Icons.location_on,
+                'Geofence',
+                v['geofence_status'] == 'outside'
+                    ? 'OUTSIDE — ${v['geofence_distance'] != null ? '${(v['geofence_distance'] as num).toStringAsFixed(0)}m from party' : 'distance unknown'}'
+                    : v['geofence_status'] == 'inside'
+                        ? 'Inside — ${v['geofence_distance'] != null ? '${(v['geofence_distance'] as num).toStringAsFixed(0)}m' : ''}'
+                        : 'Not checked',
+              ),
             if (v['notes'] != null && v['notes'].toString().isNotEmpty)
               _detailRow(Icons.notes, 'Notes', v['notes'].toString()),
             if (v['latitude'] != null) ...[
@@ -552,5 +594,3 @@ class _VisitAnalyticsScreenState extends State<VisitAnalyticsScreen> {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 }
-
-

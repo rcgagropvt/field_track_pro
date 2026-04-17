@@ -28,8 +28,7 @@ class _SyncStatusBannerState extends State<SyncStatusBanner>
     super.initState();
     _animCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 250));
-    _heightAnim =
-        CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut);
+    _heightAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut);
 
     _checkState();
     _connectivitySub =
@@ -83,8 +82,8 @@ class _SyncStatusBannerState extends State<SyncStatusBanner>
       if (mounted && result.synced > 0) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-              'Synced \${result.synced} record\${result.synced == 1 ? '' : 's'}'
-              '\${result.failed > 0 ? ', \${result.failed} failed' : ''}'),
+              'Synced ${result.synced} record${result.synced == 1 ? '' : 's'}'
+              '${result.failed > 0 ? ', ${result.failed} failed' : ''}'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -127,9 +126,8 @@ class _SyncStatusBannerState extends State<SyncStatusBanner>
             Expanded(
               child: Text(
                 _isOffline
-                    ? 'You are offline'
-                        '\${_pendingCount > 0 ? ' — \$_pendingCount item\${_pendingCount == 1 ? '' : 's'} pending sync' : ''}'
-                    : '\$_pendingCount item\${_pendingCount == 1 ? '' : 's'} waiting to sync',
+                    ? 'You are offline${_pendingCount > 0 ? ' \u2014 $_pendingCount item${_pendingCount == 1 ? '' : 's'} pending sync' : ''}'
+                    : '$_pendingCount item${_pendingCount == 1 ? '' : 's'} waiting to sync',
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -140,8 +138,8 @@ class _SyncStatusBannerState extends State<SyncStatusBanner>
               GestureDetector(
                 onTap: _manualSync,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),

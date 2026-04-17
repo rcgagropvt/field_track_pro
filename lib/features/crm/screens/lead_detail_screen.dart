@@ -15,7 +15,15 @@ class LeadDetailScreen extends StatefulWidget {
 
 class _LeadDetailScreenState extends State<LeadDetailScreen> {
   late Map<String, dynamic> _lead;
-  final _statuses = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
+  final _statuses = [
+    'new',
+    'contacted',
+    'qualified',
+    'proposal',
+    'negotiation',
+    'won',
+    'lost'
+  ];
 
   @override
   void initState() {
@@ -33,7 +41,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
             content: Text('Status updated to ${status.toUpperCase()}'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -124,7 +133,7 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
                   const SizedBox(height: 16),
                   if (_lead['estimated_value'] != null)
                     Text(
-                      '\$${(_lead['estimated_value'] as num).toStringAsFixed(0)}',
+                      "\$${(_lead['estimated_value'] as num).toStringAsFixed(0)}",
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w700,
@@ -166,25 +175,37 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
             // Contact Info
             _buildSection('Contact Information', [
-              _buildInfoRow(Icons.email_outlined, 'Email', _lead['email'] ?? 'N/A'),
-              _buildInfoRow(Icons.phone_outlined, 'Phone', _lead['phone'] ?? 'N/A'),
-              _buildInfoRow(Icons.location_on_outlined, 'Address', _lead['address'] ?? 'N/A'),
+              _buildInfoRow(
+                  Icons.email_outlined, 'Email', _lead['email'] ?? 'N/A'),
+              _buildInfoRow(
+                  Icons.phone_outlined, 'Phone', _lead['phone'] ?? 'N/A'),
+              _buildInfoRow(Icons.location_on_outlined, 'Address',
+                  _lead['address'] ?? 'N/A'),
             ]),
 
             const SizedBox(height: 16),
 
             _buildSection('Details', [
-              _buildInfoRow(Icons.source_rounded, 'Source',
-                  (_lead['source'] ?? 'N/A').toString().replaceAll('_', ' ').toUpperCase()),
+              _buildInfoRow(
+                  Icons.source_rounded,
+                  'Source',
+                  (_lead['source'] ?? 'N/A')
+                      .toString()
+                      .replaceAll('_', ' ')
+                      .toUpperCase()),
               _buildInfoRow(Icons.flag_rounded, 'Priority',
                   (_lead['priority'] ?? 'medium').toString().toUpperCase()),
-              _buildInfoRow(Icons.calendar_today_rounded, 'Created',
+              _buildInfoRow(
+                  Icons.calendar_today_rounded,
+                  'Created',
                   _lead['created_at'] != null
-                      ? DateFormat('dd MMM yyyy').format(DateTime.parse(_lead['created_at']))
+                      ? DateFormat('dd MMM yyyy')
+                          .format(DateTime.parse(_lead['created_at']))
                       : 'N/A'),
             ]),
 
-            if (_lead['notes'] != null && (_lead['notes'] as String).isNotEmpty) ...[
+            if (_lead['notes'] != null &&
+                (_lead['notes'] as String).isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildSection('Notes', [
                 Padding(
@@ -220,7 +241,8 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
           return Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: isActive ? color : AppColors.background,
                   borderRadius: BorderRadius.circular(8),
@@ -310,16 +332,22 @@ class _LeadDetailScreenState extends State<LeadDetailScreen> {
 
   Color _getColor(String status) {
     switch (status) {
-      case 'new': return AppColors.leadNew;
-      case 'contacted': return AppColors.leadContacted;
-      case 'qualified': return AppColors.leadQualified;
-      case 'proposal': return AppColors.leadProposal;
-      case 'negotiation': return AppColors.leadNegotiation;
-      case 'won': return AppColors.leadWon;
-      case 'lost': return AppColors.leadLost;
-      default: return AppColors.textTertiary;
+      case 'new':
+        return AppColors.leadNew;
+      case 'contacted':
+        return AppColors.leadContacted;
+      case 'qualified':
+        return AppColors.leadQualified;
+      case 'proposal':
+        return AppColors.leadProposal;
+      case 'negotiation':
+        return AppColors.leadNegotiation;
+      case 'won':
+        return AppColors.leadWon;
+      case 'lost':
+        return AppColors.leadLost;
+      default:
+        return AppColors.textTertiary;
     }
   }
 }
-
-

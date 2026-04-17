@@ -77,7 +77,7 @@ class _StockCheckScreenState extends State<StockCheckScreen> {
         });
       }
     } catch (e) {
-      debugPrint('StockCheck load error: \$e');
+      debugPrint('StockCheck load error: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -98,7 +98,7 @@ class _StockCheckScreenState extends State<StockCheckScreen> {
       }
       final bytes = await photo.readAsBytes();
       final fileName =
-          'stock/\${SupabaseService.userId}/\${DateTime.now().millisecondsSinceEpoch}.jpg';
+          'stock/${SupabaseService.userId}/${DateTime.now().millisecondsSinceEpoch}.jpg';
       await SupabaseService.client.storage
           .from('uploads')
           .uploadBinary(fileName, bytes);
@@ -183,12 +183,12 @@ class _StockCheckScreenState extends State<StockCheckScreen> {
       }
 
       _showSnack(isOnline
-          ? '\$saved stock entries saved successfully'
+          ? '$saved stock entries saved successfully'
           : 'Saved offline — will sync when connected');
       await Future.delayed(const Duration(milliseconds: 600));
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      _showSnack('Error saving: \$e', isError: true);
+      _showSnack('Error saving: $e', isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
