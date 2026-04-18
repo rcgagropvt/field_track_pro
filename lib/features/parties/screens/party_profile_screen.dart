@@ -42,6 +42,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     super.initState();
     _party = Map<String, dynamic>.from(widget.party);
     _tabs = TabController(length: 6, vsync: this);
+    _tabs.addListener(() => setState(() {}));
     _load();
   }
 

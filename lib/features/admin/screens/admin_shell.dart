@@ -25,6 +25,7 @@ import '../../collections/screens/outstanding_screen.dart';
 import '../../parties/screens/admin_parties_screen.dart';
 import '../../stock/screens/distributor_stock_screen.dart';
 import 'ai_command_center_screen.dart';
+import 'admin_loyalty_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -65,6 +66,7 @@ class _AdminShellState extends State<AdminShell> {
     AdvancedAnalyticsScreen(), // 20
     DistributorStockScreen(), // 21  ← Sprint 7
     AiCommandCenterScreen(),
+    AdminLoyaltyScreen(),
   ];
 
   @override
@@ -202,6 +204,7 @@ class _AdminShellState extends State<AdminShell> {
                       _subItem(Icons.shopping_cart, 'All Orders', 12),
                       _subItem(
                           Icons.local_offer_rounded, 'Schemes & Offers', 15),
+                      _subItem(Icons.card_giftcard, 'Loyalty Program', 23),
                       _subItem(Icons.payments_rounded, 'Collections', 16),
                       _subItem(Icons.bar_chart_rounded, 'Aging Analysis', 17),
                       _subItem(Icons.account_balance_wallet, 'Outstanding', 18),
