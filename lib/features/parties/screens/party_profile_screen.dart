@@ -39,7 +39,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   void initState() {
     super.initState();
     _party = Map<String, dynamic>.from(widget.party);
-    _tabs  = TabController(length: 5, vsync: this);
+    _tabs  = TabController(length: 6, vsync: this);
     _load();
   }
 
@@ -441,6 +441,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                       Tab(text: '🧾 Invoices'),
                       Tab(text: '🏦 PDC Cheques'),
                       Tab(text: '🛒 Orders'),
+                      Tab(text: '🎁 Loyalty'),
                     ],
                   ),
                 ),
@@ -453,6 +454,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                   _invoicesTab(),   // ← FIXED: was _paymentsTab, now shows all invoices with per-invoice Collect
                   _pdcTab(),
                   _ordersTab(),
+                  _loyaltyTab(),
                 ],
               ),
             ),
@@ -1241,4 +1243,409 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               letterSpacing: 0.5)),
     );
   }
+    // ════════════════════════════════════════════════
+  Widget _loyaltyTab() {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _loadLoyaltyData(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final data = snapshot.data;
+        if (data == null) {
+          return Center(
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.card_giftcard, size: 60, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              const Text('No loyalty data yet',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
+              const SizedBox(height: 4),
+              const Text('Points will be earned on orders',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ]),
+          );
+        }
+
+        final tier = data['out_tier'] ?? 'bronze';
+        final totalPoints = data['out_total_points'] as int? ?? 0;
+        final available = data['out_available_points'] as int? ?? 0;
+        final purchases = (data['out_total_purchases'] as num?)?.toDouble() ?? 0;
+        final nextTier = data['out_next_tier'] ?? 'silver';
+        final pointsToNext = data['out_points_to_next'] as int? ?? 0;
+        final recentPoints = (data['out_recent_points'] as List?) ?? [];
+        final recentRedemptions = (data['out_recent_redemptions'] as List?) ?? [];
+
+        final tierColor = tier == 'platinum'
+            ? const Color(0xFF6C63FF)
+            : tier == 'gold'
+                ? Colors.amber.shade700
+                : tier == 'silver'
+                    ? Colors.blueGrey
+                    : Colors.brown;
+
+        final tierIcon = tier == 'platinum'
+            ? Icons.diamond
+            : tier == 'gold'
+                ? Icons.workspace_premium
+                : tier == 'silver'
+                    ? Icons.star
+                    : Icons.military_tech;
+
+        return RefreshIndicator(
+          onRefresh: () async => setState(() {}),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // ── Tier Card ──
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [tierColor, tierColor.withOpacity(0.7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(color: tierColor.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6)),
+                  ],
+                ),
+                child: Column(children: [
+                  Icon(tierIcon, size: 40, color: Colors.white),
+                  const SizedBox(height: 8),
+                  Text(tier.toUpperCase(),
+                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  const SizedBox(height: 4),
+                  Text(_party['name'] ?? '',
+                      style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
+                  const SizedBox(height: 16),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                    _loyaltyStat('Available', '$available pts', Colors.white),
+                    Container(width: 1, height: 30, color: Colors.white30),
+                    _loyaltyStat('Total Earned', '$totalPoints pts', Colors.white),
+                    Container(width: 1, height: 30, color: Colors.white30),
+                    _loyaltyStat('Purchases', '₹${_fmt.format(purchases)}', Colors.white),
+                  ]),
+                  if (tier != 'platinum') ...[
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: pointsToNext > 0
+                            ? (totalPoints / (totalPoints + pointsToNext)).clamp(0.0, 1.0)
+                            : 1.0,
+                        backgroundColor: Colors.white24,
+                        valueColor: const AlwaysStoppedAnimation(Colors.white),
+                        minHeight: 6,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text('$pointsToNext points to ${nextTier.toUpperCase()}',
+                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11)),
+                  ],
+                ]),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Rewards Catalog ──
+              Row(children: [
+                const Text('Rewards Catalog',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text('$available pts available',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+              ]),
+              const SizedBox(height: 10),
+              FutureBuilder<List>(
+                future: SupabaseService.client
+                    .from('loyalty_rewards')
+                    .select()
+                    .eq('is_active', true)
+                    .order('points_required'),
+                builder: (context, snap) {
+                  if (!snap.hasData) return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+                  final rewards = snap.data!;
+                  if (rewards.isEmpty) return const Text('No rewards available', style: TextStyle(color: Colors.grey));
+                  return SizedBox(
+                    height: 155,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: rewards.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (_, i) {
+                        final r = rewards[i] as Map<String, dynamic>;
+                        final canRedeem = available >= (r['points_required'] as int);
+                        final typeIcon = r['reward_type'] == 'discount'
+                            ? Icons.local_offer
+                            : r['reward_type'] == 'cashback'
+                                ? Icons.account_balance_wallet
+                                : r['reward_type'] == 'gift'
+                                    ? Icons.card_giftcard
+                                    : Icons.local_shipping;
+                        return Container(
+                          width: 150,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: canRedeem ? AppColors.primarySurface : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: canRedeem ? AppColors.primary.withOpacity(0.3) : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Icon(typeIcon, color: canRedeem ? AppColors.primary : Colors.grey, size: 24),
+                            const SizedBox(height: 8),
+                            Text(r['name'] ?? '', style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12,
+                              color: canRedeem ? Colors.black87 : Colors.grey,
+                            ), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const Spacer(),
+                            Row(children: [
+                              Text('${r['points_required']} pts',
+                                  style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.w600,
+                                    color: canRedeem ? AppColors.primary : Colors.grey,
+                                  )),
+                              const Spacer(),
+                              if (canRedeem)
+                                GestureDetector(
+                                  onTap: () => _redeemReward(r),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text('Redeem',
+                                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                            ]),
+                          ]),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Points History ──
+              if (recentPoints.isNotEmpty) ...[
+                const Text('Points History',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                ...recentPoints.map((p) {
+                  final pts = p['points'] as int? ?? 0;
+                  final isEarn = pts > 0;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(children: [
+                      Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: (isEarn ? Colors.green : Colors.red).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          isEarn ? Icons.add_circle_outline : Icons.remove_circle_outline,
+                          color: isEarn ? Colors.green : Colors.red, size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(p['description']?.toString() ?? p['action']?.toString() ?? '',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          if (p['created_at'] != null)
+                            Text(DateFormat('dd MMM, hh:mm a').format(DateTime.parse(p['created_at'].toString()).toLocal()),
+                                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ]),
+                      ),
+                      Text('${isEarn ? '+' : ''}$pts',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14,
+                            color: isEarn ? Colors.green : Colors.red,
+                          )),
+                    ]),
+                  );
+                }),
+              ],
+
+              // ── Redemption History ──
+              if (recentRedemptions.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Redemptions',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                ...recentRedemptions.map((r) {
+                  final status = r['status']?.toString() ?? 'pending';
+                  final statusColor = status == 'fulfilled'
+                      ? Colors.green
+                      : status == 'approved'
+                          ? Colors.blue
+                          : status == 'rejected'
+                              ? Colors.red
+                              : Colors.orange;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.card_giftcard, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(r['reward_name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                          Text('${r['points_spent']} pts · $status',
+                              style: TextStyle(fontSize: 11, color: statusColor)),
+                        ]),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(status.toUpperCase(),
+                            style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold)),
+                      ),
+                    ]),
+                  );
+                }),
+              ],
+
+              const SizedBox(height: 20),
+
+              // ── How it works ──
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('How Loyalty Works', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  _howItWorksRow('🛒', 'Earn 1 point per ₹100 spent'),
+                  _howItWorksRow('🥉', 'Bronze: 0 – 499 points'),
+                  _howItWorksRow('🥈', 'Silver: 500 – 1,999 points'),
+                  _howItWorksRow('🥇', 'Gold: 2,000 – 4,999 points'),
+                  _howItWorksRow('💎', 'Platinum: 5,000+ points'),
+                  _howItWorksRow('🎁', 'Redeem points for discounts, cashback & gifts'),
+                ]),
+              ),
+              const SizedBox(height: 20),
+            ]),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>?> _loadLoyaltyData() async {
+    try {
+      final pid = _party['id'] as String;
+      final result = await SupabaseService.client.rpc('get_party_loyalty_dashboard',
+          params: {'p_party_id': pid});
+      if (result is List && result.isNotEmpty) {
+        return Map<String, dynamic>.from(result.first);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Loyalty load error: $e');
+      return null;
+    }
+  }
+
+  Future<void> _redeemReward(Map<String, dynamic> reward) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Redeem Reward'),
+        content: Text('Redeem "${reward['name']}" for ${reward['points_required']} points?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('Redeem', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final result = await SupabaseService.client.rpc('redeem_loyalty_reward', params: {
+        'p_party_id': _party['id'],
+        'p_reward_id': reward['id'],
+      });
+
+      if (result == 'success') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎉 Redeemed "${reward['name']}" successfully!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          setState(() {}); // Refresh loyalty tab
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Redemption failed: $result'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
+  }
+
+  Widget _loyaltyStat(String label, String value, Color color) {
+    return Column(children: [
+      Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+      const SizedBox(height: 2),
+      Text(label, style: TextStyle(color: color.withOpacity(0.7), fontSize: 10)),
+    ]);
+  }
+
+  Widget _howItWorksRow(String emoji, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        Text(emoji, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: Colors.black87))),
+      ]),
+    );
+  }
+
 }
