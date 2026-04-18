@@ -7,6 +7,8 @@ import '../../../core/services/supabase_service.dart';
 import '../../collections/screens/collect_payment_screen.dart';
 import '../../orders/screens/order_booking_screen.dart';
 
+int _loyaltyRefreshKey = 0;
+
 class PartyProfileScreen extends StatefulWidget {
   final Map<String, dynamic> party;
   final bool isAdmin;
@@ -25,11 +27,11 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   late Map<String, dynamic> _party;
   bool _loading = true;
 
-  List<Map<String, dynamic>> _invoices    = [];
+  List<Map<String, dynamic>> _invoices = [];
   List<Map<String, dynamic>> _collections = [];
-  List<Map<String, dynamic>> _orders      = [];
-  List<Map<String, dynamic>> _ledger      = [];
-  List<Map<String, dynamic>> _pdcs        = [];
+  List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _ledger = [];
+  List<Map<String, dynamic>> _pdcs = [];
 
   double _totalSales = 0, _totalPaid = 0, _totalOutstanding = 0;
 
@@ -39,12 +41,15 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   void initState() {
     super.initState();
     _party = Map<String, dynamic>.from(widget.party);
-    _tabs  = TabController(length: 6, vsync: this);
+    _tabs = TabController(length: 6, vsync: this);
     _load();
   }
 
   @override
-  void dispose() { _tabs.dispose(); super.dispose(); }
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
 
   // ── Data load ───────────────────────────────────
   Future<void> _load() async {
@@ -52,45 +57,55 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     try {
       final pid = _party['id'] as String;
       final results = await Future.wait([
-        SupabaseService.client.from('invoices').select()
-            .eq('party_id', pid).order('created_at', ascending: false),
-        SupabaseService.client.from('collections').select()
-            .eq('party_id', pid).order('collected_at', ascending: false),
-        SupabaseService.client.from('orders').select()
-            .eq('party_id', pid).order('created_at', ascending: false),
+        SupabaseService.client
+            .from('invoices')
+            .select()
+            .eq('party_id', pid)
+            .order('created_at', ascending: false),
+        SupabaseService.client
+            .from('collections')
+            .select()
+            .eq('party_id', pid)
+            .order('collected_at', ascending: false),
+        SupabaseService.client
+            .from('orders')
+            .select()
+            .eq('party_id', pid)
+            .order('created_at', ascending: false),
         SupabaseService.client.from('parties').select().eq('id', pid).single(),
       ]);
 
-      final invoices    = List<Map<String, dynamic>>.from(results[0] as List);
+      final invoices = List<Map<String, dynamic>>.from(results[0] as List);
       final collections = List<Map<String, dynamic>>.from(results[1] as List);
-      final orders      = List<Map<String, dynamic>>.from(results[2] as List);
-      final partyData   = results[3] as Map<String, dynamic>;
+      final orders = List<Map<String, dynamic>>.from(results[2] as List);
+      final partyData = results[3] as Map<String, dynamic>;
 
       // Build ledger
       final List<Map<String, dynamic>> ledger = [];
       for (final o in orders) {
         ledger.add({
-          'date'       : o['created_at'],
+          'date': o['created_at'],
           'description': 'Order ${o['order_number'] ?? ''}',
-          'debit'      : (o['total_amount'] as num).toDouble(),
-          'credit'     : 0.0,
-          'type'       : 'order',
-          'status'     : o['status'],
+          'debit': (o['total_amount'] as num).toDouble(),
+          'credit': 0.0,
+          'type': 'order',
+          'status': o['status'],
         });
       }
       for (final c in collections) {
         if (c['status'] == 'confirmed') {
           ledger.add({
-            'date'       : c['collected_at'],
+            'date': c['collected_at'],
             'description': 'Payment (${c['payment_mode']})'
                 '${c['reference_no'] != null ? ' #${c['reference_no']}' : ''}',
-            'debit'  : 0.0,
-            'credit' : (c['amount_collected'] as num).toDouble(),
-            'type'   : 'payment',
+            'debit': 0.0,
+            'credit': (c['amount_collected'] as num).toDouble(),
+            'type': 'payment',
           });
         }
       }
-      ledger.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+      ledger
+          .sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
       double bal = 0;
       for (final e in ledger) {
         bal += (e['debit'] as double) - (e['credit'] as double);
@@ -101,25 +116,27 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
 
       final sales = orders.fold<double>(
           0, (s, o) => s + (o['total_amount'] as num).toDouble());
-      final paid  = collections
+      final paid = collections
           .where((c) => c['status'] == 'confirmed')
-          .fold<double>(0, (s, c) => s + (c['amount_collected'] as num).toDouble());
+          .fold<double>(
+              0, (s, c) => s + (c['amount_collected'] as num).toDouble());
       final outstanding = invoices
           .where((i) => i['status'] != 'paid')
-          .fold<double>(0, (s, i) => s + ((i['balance'] as num?)?.toDouble() ?? 0));
+          .fold<double>(
+              0, (s, i) => s + ((i['balance'] as num?)?.toDouble() ?? 0));
 
       if (mounted) {
         setState(() {
-          _party          = partyData;
-          _invoices       = invoices;
-          _collections    = collections;
-          _orders         = orders;
-          _ledger         = ledger;
-          _pdcs           = pdcs;
-          _totalSales     = sales;
-          _totalPaid      = paid;
+          _party = partyData;
+          _invoices = invoices;
+          _collections = collections;
+          _orders = orders;
+          _ledger = ledger;
+          _pdcs = pdcs;
+          _totalSales = sales;
+          _totalPaid = paid;
           _totalOutstanding = outstanding;
-          _loading        = false;
+          _loading = false;
         });
       }
     } catch (_) {
@@ -160,20 +177,20 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     if (result != null) {
       await SupabaseService.client
           .from('parties')
-          .update({'credit_limit': result})
-          .eq('id', _party['id'] as String);
+          .update({'credit_limit': result}).eq('id', _party['id'] as String);
       _load();
     }
   }
 
   // ── Edit party details ───────────────────────────
   Future<void> _editPartyDetails() async {
-    final nameCtrl    = TextEditingController(text: _party['name'] ?? '');
-    final phoneCtrl   = TextEditingController(text: _party['phone'] ?? '');
-    final contactCtrl = TextEditingController(text: _party['contact_person'] ?? '');
+    final nameCtrl = TextEditingController(text: _party['name'] ?? '');
+    final phoneCtrl = TextEditingController(text: _party['phone'] ?? '');
+    final contactCtrl =
+        TextEditingController(text: _party['contact_person'] ?? '');
     final addressCtrl = TextEditingController(text: _party['address'] ?? '');
-    final emailCtrl   = TextEditingController(text: _party['email'] ?? '');
-    final gstCtrl     = TextEditingController(text: _party['gst_number'] ?? '');
+    final emailCtrl = TextEditingController(text: _party['email'] ?? '');
+    final gstCtrl = TextEditingController(text: _party['gst_number'] ?? '');
 
     await showModalBottomSheet(
       context: context,
@@ -183,7 +200,9 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
           bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: SingleChildScrollView(
@@ -193,36 +212,41 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
             children: [
               Row(children: [
                 const Text('Edit Party Details',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close)),
               ]),
               const SizedBox(height: 16),
-              _editField('Business Name',  nameCtrl,    Icons.store_rounded),
+              _editField('Business Name', nameCtrl, Icons.store_rounded),
               _editField('Contact Person', contactCtrl, Icons.person_outline),
-              _editField('Phone',          phoneCtrl,   Icons.phone_outlined,
+              _editField('Phone', phoneCtrl, Icons.phone_outlined,
                   type: TextInputType.phone),
-              _editField('Email',          emailCtrl,   Icons.email_outlined,
+              _editField('Email', emailCtrl, Icons.email_outlined,
                   type: TextInputType.emailAddress),
-              _editField('Address',        addressCtrl, Icons.location_on_outlined,
+              _editField('Address', addressCtrl, Icons.location_on_outlined,
                   maxLines: 2),
-              _editField('GST Number',     gstCtrl,     Icons.receipt_outlined),
+              _editField('GST Number', gstCtrl, Icons.receipt_outlined),
               const SizedBox(height: 20),
               SizedBox(
-                width: double.infinity, height: 50,
+                width: double.infinity,
+                height: 50,
                 child: ElevatedButton(
                   onPressed: () async {
                     await SupabaseService.client.from('parties').update({
-                      'name'          : nameCtrl.text.trim(),
-                      'phone'         : phoneCtrl.text.trim(),
+                      'name': nameCtrl.text.trim(),
+                      'phone': phoneCtrl.text.trim(),
                       'contact_person': contactCtrl.text.trim(),
-                      'address'       : addressCtrl.text.trim(),
-                      'email'         : emailCtrl.text.trim(),
-                      'gst_number'    : gstCtrl.text.trim(),
+                      'address': addressCtrl.text.trim(),
+                      'email': emailCtrl.text.trim(),
+                      'gst_number': gstCtrl.text.trim(),
                     }).eq('id', _party['id'] as String);
-                    if (mounted) { Navigator.pop(context); _load(); }
+                    if (mounted) {
+                      Navigator.pop(context);
+                      _load();
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -242,7 +266,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   }
 
   Widget _editField(String label, TextEditingController ctrl, IconData icon,
-      {TextInputType? type, int maxLines = 1}) =>
+          {TextInputType? type, int maxLines = 1}) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: TextField(
@@ -264,8 +288,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     if (!mounted) return;
     await Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (_) => CollectPaymentScreen(invoice: invoice)),
+      MaterialPageRoute(builder: (_) => CollectPaymentScreen(invoice: invoice)),
     );
     _load();
   }
@@ -275,8 +298,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   // ════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final creditLimit    = (_party['credit_limit'] as num?)?.toDouble() ?? 0;
-    final creditUsedPct  = creditLimit > 0
+    final creditLimit = (_party['credit_limit'] as num?)?.toDouble() ?? 0;
+    final creditUsedPct = creditLimit > 0
         ? (_totalOutstanding / creditLimit).clamp(0.0, 1.0)
         : 0.0;
 
@@ -295,7 +318,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     IconButton(
                         icon: const Icon(Icons.edit_outlined),
                         onPressed: _editPartyDetails),
-                    IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+                    IconButton(
+                        icon: const Icon(Icons.refresh), onPressed: _load),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     background: Container(
@@ -327,7 +351,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(_party['name'] ?? '',
                                           style: const TextStyle(
@@ -340,10 +365,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                                             horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: Colors.white24,
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
                                         ),
                                         child: Text(
-                                          (_party['type'] ?? 'party').toUpperCase(),
+                                          (_party['type'] ?? 'party')
+                                              .toUpperCase(),
                                           style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 10,
@@ -357,7 +384,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                               ]),
                               const SizedBox(height: 16),
                               Row(children: [
-                                _kpi('Total Sales', '₹${_fmt.format(_totalSales)}'),
+                                _kpi('Total Sales',
+                                    '₹${_fmt.format(_totalSales)}'),
                                 _kpiDivider(),
                                 _kpi('Paid', '₹${_fmt.format(_totalPaid)}'),
                                 _kpiDivider(),
@@ -370,13 +398,17 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                               const SizedBox(height: 12),
                               if (creditLimit > 0) ...[
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text('Credit Limit',
                                         style: TextStyle(
-                                            color: Colors.white70, fontSize: 11)),
+                                            color: Colors.white70,
+                                            fontSize: 11)),
                                     GestureDetector(
-                                      onTap: widget.isAdmin ? _editCreditLimit : null,
+                                      onTap: widget.isAdmin
+                                          ? _editCreditLimit
+                                          : null,
                                       child: Row(children: [
                                         Text('₹${_fmt.format(creditLimit)}',
                                             style: const TextStyle(
@@ -418,7 +450,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                                     SizedBox(width: 4),
                                     Text('Set Credit Limit',
                                         style: TextStyle(
-                                            color: Colors.white54, fontSize: 12)),
+                                            color: Colors.white54,
+                                            fontSize: 12)),
                                   ]),
                                 ),
                             ],
@@ -451,7 +484,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                 children: [
                   _overviewTab(),
                   _ledgerTab(),
-                  _invoicesTab(),   // ← FIXED: was _paymentsTab, now shows all invoices with per-invoice Collect
+                  _invoicesTab(), // ← FIXED: was _paymentsTab, now shows all invoices with per-invoice Collect
                   _pdcTab(),
                   _ordersTab(),
                   _loyaltyTab(),
@@ -504,12 +537,15 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
           title: 'Contact Information',
           icon: Icons.person_outline,
           child: Column(children: [
-            _infoRow(Icons.phone_outlined,    'Phone',   _party['phone'] ?? '—'),
-            _infoRow(Icons.email_outlined,    'Email',   _party['email'] ?? '—'),
-            _infoRow(Icons.person_rounded,    'Contact', _party['contact_person'] ?? '—'),
-            _infoRow(Icons.location_on_outlined, 'Address', _party['address'] ?? '—'),
-            _infoRow(Icons.receipt_outlined,  'GST',     _party['gst_number'] ?? '—'),
-            _infoRow(Icons.location_city,     'City',    _party['city'] ?? '—'),
+            _infoRow(Icons.phone_outlined, 'Phone', _party['phone'] ?? '—'),
+            _infoRow(Icons.email_outlined, 'Email', _party['email'] ?? '—'),
+            _infoRow(Icons.person_rounded, 'Contact',
+                _party['contact_person'] ?? '—'),
+            _infoRow(Icons.location_on_outlined, 'Address',
+                _party['address'] ?? '—'),
+            _infoRow(
+                Icons.receipt_outlined, 'GST', _party['gst_number'] ?? '—'),
+            _infoRow(Icons.location_city, 'City', _party['city'] ?? '—'),
           ]),
         ),
         const SizedBox(height: 12),
@@ -617,10 +653,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     ),
                   );
                   if (confirm == true) {
-                    await SupabaseService.client
-                        .from('parties')
-                        .update({'is_active': false})
-                        .eq('id', _party['id'] as String);
+                    await SupabaseService.client.from('parties').update(
+                        {'is_active': false}).eq('id', _party['id'] as String);
                     if (mounted) Navigator.pop(context);
                   }
                 },
@@ -633,41 +667,53 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   }
 
   List<Widget> _buildAgingRows() {
-    final today   = DateTime.now();
+    final today = DateTime.now();
     final buckets = {'0-30': 0.0, '31-60': 0.0, '61-90': 0.0, '90+': 0.0};
-    final colors  = {
-      '0-30' : Colors.green,
+    final colors = {
+      '0-30': Colors.green,
       '31-60': Colors.orange,
       '61-90': Colors.deepOrange,
-      '90+'  : Colors.red,
+      '90+': Colors.red,
     };
     for (final inv in _invoices.where((i) => i['status'] != 'paid')) {
       final due = DateTime.tryParse(inv['due_date'] ?? '');
       final bal = (inv['balance'] as num?)?.toDouble() ?? 0;
-      if (due == null) { buckets['0-30'] = buckets['0-30']! + bal; continue; }
+      if (due == null) {
+        buckets['0-30'] = buckets['0-30']! + bal;
+        continue;
+      }
       final days = today.difference(due).inDays;
-      if (days <= 30)      { buckets['0-30']  = buckets['0-30']!  + bal; }
-      else if (days <= 60) { buckets['31-60'] = buckets['31-60']! + bal; }
-      else if (days <= 90) { buckets['61-90'] = buckets['61-90']! + bal; }
-      else                 { buckets['90+']   = buckets['90+']!   + bal; }
+      if (days <= 30) {
+        buckets['0-30'] = buckets['0-30']! + bal;
+      } else if (days <= 60) {
+        buckets['31-60'] = buckets['31-60']! + bal;
+      } else if (days <= 90) {
+        buckets['61-90'] = buckets['61-90']! + bal;
+      } else {
+        buckets['90+'] = buckets['90+']! + bal;
+      }
     }
-    return buckets.entries.where((e) => e.value > 0).map((e) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Container(
-            width: 10, height: 10,
-            decoration: BoxDecoration(
-                color: colors[e.key], shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Text('${e.key} days', style: const TextStyle(fontSize: 13)),
-        const Spacer(),
-        Text('₹${_fmt.format(e.value)}',
-            style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: colors[e.key],
-                fontSize: 13)),
-      ]),
-    )).toList();
+    return buckets.entries
+        .where((e) => e.value > 0)
+        .map((e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                        color: colors[e.key], shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Text('${e.key} days', style: const TextStyle(fontSize: 13)),
+                const Spacer(),
+                Text('₹${_fmt.format(e.value)}',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: colors[e.key],
+                        fontSize: 13)),
+              ]),
+            ))
+        .toList();
   }
 
   // ════════════════════════════════════════════════
@@ -679,11 +725,11 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
         padding: const EdgeInsets.all(12),
         color: Colors.white,
         child: Row(children: [
-          _ledgerHeader('Date',        flex: 2),
+          _ledgerHeader('Date', flex: 2),
           _ledgerHeader('Description', flex: 4),
-          _ledgerHeader('Debit',       flex: 2, right: true),
-          _ledgerHeader('Credit',      flex: 2, right: true),
-          _ledgerHeader('Balance',     flex: 2, right: true),
+          _ledgerHeader('Debit', flex: 2, right: true),
+          _ledgerHeader('Credit', flex: 2, right: true),
+          _ledgerHeader('Balance', flex: 2, right: true),
         ]),
       ),
       Expanded(
@@ -692,9 +738,9 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
             : ListView.builder(
                 itemCount: _ledger.length,
                 itemBuilder: (_, i) {
-                  final e       = _ledger[i];
+                  final e = _ledger[i];
                   final isOrder = e['type'] == 'order';
-                  final bal     = e['balance'] as double;
+                  final bal = e['balance'] as double;
                   return Container(
                     decoration: BoxDecoration(
                       color: i.isEven ? Colors.white : const Color(0xFFF9FAFB),
@@ -707,15 +753,16 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                         bottom: BorderSide(color: Colors.grey.shade100),
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(children: [
                       Expanded(
                         flex: 2,
                         child: Text(
                           DateFormat('dd/MM').format(
                               DateTime.parse(e['date'] as String).toLocal()),
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          style:
+                              const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                       ),
                       Expanded(
@@ -729,7 +776,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                         flex: 2,
                         child: Text(
                           (e['debit'] as double) > 0
-                              ? '₹${_fmt.format(e['debit'])}' : '—',
+                              ? '₹${_fmt.format(e['debit'])}'
+                              : '—',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                               fontSize: 11,
@@ -741,7 +789,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                         flex: 2,
                         child: Text(
                           (e['credit'] as double) > 0
-                              ? '₹${_fmt.format(e['credit'])}' : '—',
+                              ? '₹${_fmt.format(e['credit'])}'
+                              : '—',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                               fontSize: 11,
@@ -781,8 +830,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
             Icon(Icons.receipt_long_outlined,
                 size: 56, color: Colors.grey.shade300),
             const SizedBox(height: 12),
-            const Text('No invoices yet',
-                style: TextStyle(color: Colors.grey)),
+            const Text('No invoices yet', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -792,15 +840,16 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       itemCount: _invoices.length,
       itemBuilder: (_, i) {
-        final inv     = _invoices[i];
+        final inv = _invoices[i];
         final balance = (inv['balance'] as num?)?.toDouble() ?? 0;
-        final amount  = (inv['amount'] as num).toDouble();
-        final paid    = (inv['amount_paid'] as num?)?.toDouble() ?? 0;
-        final due     = DateTime.tryParse(inv['due_date'] ?? '');
-        final today   = DateTime.now();
-        final overdue = due != null && due.isBefore(today) && inv['status'] != 'paid';
-        final status  = (inv['status'] ?? 'unpaid') as String;
-        final isPaid  = status == 'paid';
+        final amount = (inv['amount'] as num).toDouble();
+        final paid = (inv['amount_paid'] as num?)?.toDouble() ?? 0;
+        final due = DateTime.tryParse(inv['due_date'] ?? '');
+        final today = DateTime.now();
+        final overdue =
+            due != null && due.isBefore(today) && inv['status'] != 'paid';
+        final status = (inv['status'] ?? 'unpaid') as String;
+        final isPaid = status == 'paid';
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -853,20 +902,22 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                         ],
                       ),
                     ),
-                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text(
-                        '₹${_fmt.format(balance)}',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
-                            color: isPaid
-                                ? Colors.green
-                                : overdue
-                                    ? Colors.red.shade700
-                                    : Colors.orange.shade700),
-                      ),
-                      _statusBadge(status),
-                    ]),
+                    Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${_fmt.format(balance)}',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
+                                color: isPaid
+                                    ? Colors.green
+                                    : overdue
+                                        ? Colors.red.shade700
+                                        : Colors.orange.shade700),
+                          ),
+                          _statusBadge(status),
+                        ]),
                   ]),
 
                   const SizedBox(height: 10),
@@ -902,8 +953,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                 const Divider(height: 1),
                 InkWell(
                   onTap: () => _collectForInvoice(inv),
-                  borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(14)),
+                  borderRadius:
+                      const BorderRadius.vertical(bottom: Radius.circular(14)),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
@@ -972,9 +1023,10 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       padding: const EdgeInsets.all(16),
       itemCount: _pdcs.length,
       itemBuilder: (_, i) {
-        final pdc        = _pdcs[i];
+        final pdc = _pdcs[i];
         final chequeDate = DateTime.tryParse(pdc['cheque_date'] ?? '');
-        final isPast     = chequeDate != null && chequeDate.isBefore(DateTime.now());
+        final isPast =
+            chequeDate != null && chequeDate.isBefore(DateTime.now());
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
@@ -982,13 +1034,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-                color: isPast
-                    ? Colors.green.shade200
-                    : Colors.orange.shade200),
+                color: isPast ? Colors.green.shade200 : Colors.orange.shade200),
           ),
           child: Row(children: [
             Container(
-              width: 48, height: 48,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: isPast ? Colors.green.shade50 : Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(10),
@@ -1005,8 +1056,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 14)),
                   Text(pdc['cheque_bank'] ?? '—',
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.grey)),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   if (chequeDate != null)
                     Text(DateFormat('dd MMM yyyy').format(chequeDate),
                         style: TextStyle(
@@ -1017,7 +1067,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               ),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('₹${_fmt.format((pdc['amount_collected'] as num).toDouble())}',
+              Text(
+                  '₹${_fmt.format((pdc['amount_collected'] as num).toDouble())}',
                   style: const TextStyle(
                       fontWeight: FontWeight.w800, fontSize: 15)),
               Container(
@@ -1081,8 +1132,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       padding: const EdgeInsets.all(16),
       itemCount: _orders.length,
       itemBuilder: (_, i) {
-        final o      = _orders[i];
-        final date   = DateTime.tryParse(o['created_at'] ?? '');
+        final o = _orders[i];
+        final date = DateTime.tryParse(o['created_at'] ?? '');
         final status = (o['status'] ?? 'pending') as String;
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
@@ -1102,16 +1153,16 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                           fontWeight: FontWeight.w700, fontSize: 14)),
                   if (date != null)
                     Text(DateFormat('dd MMM yyyy').format(date.toLocal()),
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.grey)),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(
                 '₹${_fmt.format((o['total_amount'] as num).toDouble())}',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w800, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
               ),
               _statusBadge(status),
             ]),
@@ -1136,13 +1187,15 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       );
 
   Widget _kpiDivider() => Container(
-      width: 1, height: 28, color: Colors.white24,
+      width: 1,
+      height: 28,
+      color: Colors.white24,
       margin: const EdgeInsets.symmetric(horizontal: 4));
 
   Widget _sectionCard(
-      {required String title,
-      required IconData icon,
-      required Widget child}) =>
+          {required String title,
+          required IconData icon,
+          required Widget child}) =>
       Container(
         decoration: BoxDecoration(
             color: Colors.white,
@@ -1180,7 +1233,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
           Expanded(
               child: Text(value,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w500))),
         ]),
       );
 
@@ -1192,8 +1246,7 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
           decoration: BoxDecoration(
             color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.2)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, size: 16, color: AppColors.primary),
@@ -1220,14 +1273,14 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
 
   Widget _statusBadge(String status) {
     final map = {
-      'paid'     : (Colors.green,  Colors.green.shade50),
-      'partial'  : (Colors.orange, Colors.orange.shade50),
-      'unpaid'   : (Colors.red,    Colors.red.shade50),
-      'overdue'  : (Colors.red,    Colors.red.shade50),
-      'confirmed': (Colors.green,  Colors.green.shade50),
-      'pending'  : (Colors.orange, Colors.orange.shade50),
-      'cancelled': (Colors.grey,   Colors.grey.shade100),
-      'delivered': (Colors.blue,   Colors.blue.shade50),
+      'paid': (Colors.green, Colors.green.shade50),
+      'partial': (Colors.orange, Colors.orange.shade50),
+      'unpaid': (Colors.red, Colors.red.shade50),
+      'overdue': (Colors.red, Colors.red.shade50),
+      'confirmed': (Colors.green, Colors.green.shade50),
+      'pending': (Colors.orange, Colors.orange.shade50),
+      'cancelled': (Colors.grey, Colors.grey.shade100),
+      'delivered': (Colors.blue, Colors.blue.shade50),
     };
     final colors = map[status] ?? (Colors.grey, Colors.grey.shade100);
     return Container(
@@ -1243,9 +1296,11 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               letterSpacing: 0.5)),
     );
   }
-    // ════════════════════════════════════════════════
+
+  // ════════════════════════════════════════════════
   Widget _loyaltyTab() {
     return FutureBuilder<Map<String, dynamic>?>(
+      key: ValueKey(_loyaltyRefreshKey),
       future: _loadLoyaltyData(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1255,11 +1310,15 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
         final data = snapshot.data;
         if (data == null) {
           return Center(
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.card_giftcard, size: 60, color: Colors.grey.shade300),
               const SizedBox(height: 12),
               const Text('No loyalty data yet',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey)),
               const SizedBox(height: 4),
               const Text('Points will be earned on orders',
                   style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -1270,11 +1329,13 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
         final tier = data['out_tier'] ?? 'bronze';
         final totalPoints = data['out_total_points'] as int? ?? 0;
         final available = data['out_available_points'] as int? ?? 0;
-        final purchases = (data['out_total_purchases'] as num?)?.toDouble() ?? 0;
+        final purchases =
+            (data['out_total_purchases'] as num?)?.toDouble() ?? 0;
         final nextTier = data['out_next_tier'] ?? 'silver';
         final pointsToNext = data['out_points_to_next'] as int? ?? 0;
         final recentPoints = (data['out_recent_points'] as List?) ?? [];
-        final recentRedemptions = (data['out_recent_redemptions'] as List?) ?? [];
+        final recentRedemptions =
+            (data['out_recent_redemptions'] as List?) ?? [];
 
         final tierColor = tier == 'platinum'
             ? const Color(0xFF6C63FF)
@@ -1293,11 +1354,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     : Icons.military_tech;
 
         return RefreshIndicator(
-          onRefresh: () async => setState(() {}),
+          onRefresh: () async => setState(() => _loyaltyRefreshKey++),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // ── Tier Card ──
               Container(
                 width: double.infinity,
@@ -1310,32 +1372,46 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
-                    BoxShadow(color: tierColor.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6)),
+                    BoxShadow(
+                        color: tierColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6)),
                   ],
                 ),
                 child: Column(children: [
                   Icon(tierIcon, size: 40, color: Colors.white),
                   const SizedBox(height: 8),
                   Text(tier.toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2)),
                   const SizedBox(height: 4),
                   Text(_party['name'] ?? '',
-                      style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.9), fontSize: 14)),
                   const SizedBox(height: 16),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                    _loyaltyStat('Available', '$available pts', Colors.white),
-                    Container(width: 1, height: 30, color: Colors.white30),
-                    _loyaltyStat('Total Earned', '$totalPoints pts', Colors.white),
-                    Container(width: 1, height: 30, color: Colors.white30),
-                    _loyaltyStat('Purchases', '₹${_fmt.format(purchases)}', Colors.white),
-                  ]),
+                  Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _loyaltyStat(
+                            'Available', '$available pts', Colors.white),
+                        Container(width: 1, height: 30, color: Colors.white30),
+                        _loyaltyStat(
+                            'Total Earned', '$totalPoints pts', Colors.white),
+                        Container(width: 1, height: 30, color: Colors.white30),
+                        _loyaltyStat('Purchases', '₹${_fmt.format(purchases)}',
+                            Colors.white),
+                      ]),
                   if (tier != 'platinum') ...[
                     const SizedBox(height: 16),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
                         value: pointsToNext > 0
-                            ? (totalPoints / (totalPoints + pointsToNext)).clamp(0.0, 1.0)
+                            ? (totalPoints / (totalPoints + pointsToNext))
+                                .clamp(0.0, 1.0)
                             : 1.0,
                         backgroundColor: Colors.white24,
                         valueColor: const AlwaysStoppedAnimation(Colors.white),
@@ -1344,7 +1420,9 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     ),
                     const SizedBox(height: 6),
                     Text('$pointsToNext points to ${nextTier.toUpperCase()}',
-                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11)),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 11)),
                   ],
                 ]),
               ),
@@ -1354,10 +1432,14 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               // ── Rewards Catalog ──
               Row(children: [
                 const Text('Rewards Catalog',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 Text('$available pts available',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500)),
               ]),
               const SizedBox(height: 10),
               FutureBuilder<List>(
@@ -1367,18 +1449,24 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     .eq('is_active', true)
                     .order('points_required'),
                 builder: (context, snap) {
-                  if (!snap.hasData) return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+                  if (!snap.hasData)
+                    return const SizedBox(
+                        height: 80,
+                        child: Center(child: CircularProgressIndicator()));
                   final rewards = snap.data!;
-                  if (rewards.isEmpty) return const Text('No rewards available', style: TextStyle(color: Colors.grey));
+                  if (rewards.isEmpty)
+                    return const Text('No rewards available',
+                        style: TextStyle(color: Colors.grey));
                   return SizedBox(
-                    height: 155,
+                    height: 170,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: rewards.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 10),
                       itemBuilder: (_, i) {
                         final r = rewards[i] as Map<String, dynamic>;
-                        final canRedeem = available >= (r['points_required'] as int);
+                        final canRedeem =
+                            available >= (r['points_required'] as int);
                         final typeIcon = r['reward_type'] == 'discount'
                             ? Icons.local_offer
                             : r['reward_type'] == 'cashback'
@@ -1390,42 +1478,66 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                           width: 150,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: canRedeem ? AppColors.primarySurface : Colors.grey.shade100,
+                            color: canRedeem
+                                ? AppColors.primarySurface
+                                : Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: canRedeem ? AppColors.primary.withOpacity(0.3) : Colors.grey.shade300,
+                              color: canRedeem
+                                  ? AppColors.primary.withOpacity(0.3)
+                                  : Colors.grey.shade300,
                             ),
                           ),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Icon(typeIcon, color: canRedeem ? AppColors.primary : Colors.grey, size: 24),
-                            const SizedBox(height: 8),
-                            Text(r['name'] ?? '', style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 12,
-                              color: canRedeem ? Colors.black87 : Colors.grey,
-                            ), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            const Spacer(),
-                            Row(children: [
-                              Text('${r['points_required']} pts',
-                                  style: TextStyle(
-                                    fontSize: 11, fontWeight: FontWeight.w600,
-                                    color: canRedeem ? AppColors.primary : Colors.grey,
-                                  )),
-                              const Spacer(),
-                              if (canRedeem)
-                                GestureDetector(
-                                  onTap: () => _redeemReward(r),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(8),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(typeIcon,
+                                    color: canRedeem
+                                        ? AppColors.primary
+                                        : Colors.grey,
+                                    size: 24),
+                                const SizedBox(height: 8),
+                                Text(r['name'] ?? '',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: canRedeem
+                                          ? Colors.black87
+                                          : Colors.grey,
                                     ),
-                                    child: const Text('Redeem',
-                                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                            ]),
-                          ]),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis),
+                                const Spacer(),
+                                Row(children: [
+                                  Text('${r['points_required']} pts',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: canRedeem
+                                            ? AppColors.primary
+                                            : Colors.grey,
+                                      )),
+                                  const Spacer(),
+                                  if (canRedeem)
+                                    GestureDetector(
+                                      onTap: () => _redeemReward(r),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: const Text('Redeem',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                ]),
+                              ]),
                         );
                       },
                     ),
@@ -1438,7 +1550,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               // ── Points History ──
               if (recentPoints.isNotEmpty) ...[
                 const Text('Points History',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 ...recentPoints.map((p) {
                   final pts = p['points'] as int? ?? 0;
@@ -1453,29 +1566,47 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                     ),
                     child: Row(children: [
                       Container(
-                        width: 36, height: 36,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: (isEarn ? Colors.green : Colors.red).withOpacity(0.1),
+                          color: (isEarn ? Colors.green : Colors.red)
+                              .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
-                          isEarn ? Icons.add_circle_outline : Icons.remove_circle_outline,
-                          color: isEarn ? Colors.green : Colors.red, size: 18,
+                          isEarn
+                              ? Icons.add_circle_outline
+                              : Icons.remove_circle_outline,
+                          color: isEarn ? Colors.green : Colors.red,
+                          size: 18,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(p['description']?.toString() ?? p['action']?.toString() ?? '',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                          if (p['created_at'] != null)
-                            Text(DateFormat('dd MMM, hh:mm a').format(DateTime.parse(p['created_at'].toString()).toLocal()),
-                                style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        ]),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  p['description']?.toString() ??
+                                      p['action']?.toString() ??
+                                      '',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500)),
+                              if (p['created_at'] != null)
+                                Text(
+                                    DateFormat('dd MMM, hh:mm a').format(
+                                        DateTime.parse(
+                                                p['created_at'].toString())
+                                            .toLocal()),
+                                    style: const TextStyle(
+                                        fontSize: 10, color: Colors.grey)),
+                            ]),
                       ),
                       Text('${isEarn ? '+' : ''}$pts',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                             color: isEarn ? Colors.green : Colors.red,
                           )),
                     ]),
@@ -1487,7 +1618,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               if (recentRedemptions.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Text('Redemptions',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 ...recentRedemptions.map((r) {
                   final status = r['status']?.toString() ?? 'pending';
@@ -1507,23 +1639,34 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                       border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.card_giftcard, color: AppColors.primary, size: 20),
+                      const Icon(Icons.card_giftcard,
+                          color: AppColors.primary, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r['reward_name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                          Text('${r['points_spent']} pts · $status',
-                              style: TextStyle(fontSize: 11, color: statusColor)),
-                        ]),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r['reward_name']?.toString() ?? '',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12)),
+                              Text('${r['points_spent']} pts · $status',
+                                  style: TextStyle(
+                                      fontSize: 11, color: statusColor)),
+                            ]),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(status.toUpperCase(),
-                            style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold)),
+                            style: TextStyle(
+                                color: statusColor,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ]),
                   );
@@ -1540,16 +1683,21 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('How Loyalty Works', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  _howItWorksRow('🛒', 'Earn 1 point per ₹100 spent'),
-                  _howItWorksRow('🥉', 'Bronze: 0 – 499 points'),
-                  _howItWorksRow('🥈', 'Silver: 500 – 1,999 points'),
-                  _howItWorksRow('🥇', 'Gold: 2,000 – 4,999 points'),
-                  _howItWorksRow('💎', 'Platinum: 5,000+ points'),
-                  _howItWorksRow('🎁', 'Redeem points for discounts, cashback & gifts'),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('How Loyalty Works',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      _howItWorksRow('🛒', 'Earn 1 point per ₹100 spent'),
+                      _howItWorksRow('🥉', 'Bronze: 0 – 499 points'),
+                      _howItWorksRow('🥈', 'Silver: 500 – 1,999 points'),
+                      _howItWorksRow('🥇', 'Gold: 2,000 – 4,999 points'),
+                      _howItWorksRow('💎', 'Platinum: 5,000+ points'),
+                      _howItWorksRow('🎁',
+                          'Redeem points for discounts, cashback & gifts'),
+                    ]),
               ),
               const SizedBox(height: 20),
             ]),
@@ -1562,8 +1710,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
   Future<Map<String, dynamic>?> _loadLoyaltyData() async {
     try {
       final pid = _party['id'] as String;
-      final result = await SupabaseService.client.rpc('get_party_loyalty_dashboard',
-          params: {'p_party_id': pid});
+      final result = await SupabaseService.client
+          .rpc('get_party_loyalty_dashboard', params: {'p_party_id': pid});
       if (result is List && result.isNotEmpty) {
         return Map<String, dynamic>.from(result.first);
       }
@@ -1579,9 +1727,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Redeem Reward'),
-        content: Text('Redeem "${reward['name']}" for ${reward['points_required']} points?'),
+        content: Text(
+            'Redeem "${reward['name']}" for ${reward['points_required']} points?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
@@ -1593,7 +1744,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     if (confirmed != true) return;
 
     try {
-      final result = await SupabaseService.client.rpc('redeem_loyalty_reward', params: {
+      final result =
+          await SupabaseService.client.rpc('redeem_loyalty_reward', params: {
         'p_party_id': _party['id'],
         'p_reward_id': reward['id'],
       });
@@ -1607,7 +1759,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               behavior: SnackBarBehavior.floating,
             ),
           );
-          setState(() {}); // Refresh loyalty tab
+          setState(() => _loyaltyRefreshKey++);
+          // Refresh loyalty tab
         }
       } else {
         if (mounted) {
@@ -1623,7 +1776,10 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -1631,9 +1787,12 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
 
   Widget _loyaltyStat(String label, String value, Color color) {
     return Column(children: [
-      Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+      Text(value,
+          style: TextStyle(
+              color: color, fontWeight: FontWeight.bold, fontSize: 15)),
       const SizedBox(height: 2),
-      Text(label, style: TextStyle(color: color.withOpacity(0.7), fontSize: 10)),
+      Text(label,
+          style: TextStyle(color: color.withOpacity(0.7), fontSize: 10)),
     ]);
   }
 
@@ -1643,9 +1802,10 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
       child: Row(children: [
         Text(emoji, style: const TextStyle(fontSize: 14)),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: Colors.black87))),
+        Expanded(
+            child: Text(text,
+                style: const TextStyle(fontSize: 12, color: Colors.black87))),
       ]),
     );
   }
-
 }
