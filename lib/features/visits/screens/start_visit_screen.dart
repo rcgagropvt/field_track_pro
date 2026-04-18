@@ -15,6 +15,7 @@ import '../../../core/services/geofence_service.dart';
 import '../../../router/app_router.dart';
 import '../../orders/screens/order_booking_screen.dart';
 import '../../orders/screens/ai_suggested_order_screen.dart';
+import '../../../core/services/push_notification_service.dart';
 
 class StartVisitScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -388,6 +389,22 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
               params: {'p_user_id': SupabaseService.userId});
         } catch (_) {}
       } catch (_) {}
+// Send push notifications for rank changes
+try {
+  final notifications = await SupabaseService.client
+      .from('notifications')
+      .select('user_id, title, body')
+      .eq('type', 'rank_change')
+      .eq('is_read', false)
+      .gte('created_at', DateTime.now().subtract(const Duration(minutes: 1)).toIso8601String());
+  for (final n in notifications as List) {
+    await PushNotificationService.sendToUser(
+      userId: n['user_id'],
+      title: n['title'],
+      body: n['body'],
+    );
+  }
+} catch (_) {}
 
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) Navigator.pop(context, true);

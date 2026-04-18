@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'router/app_router.dart';
 import 'core/services/tracking_service.dart';
 import 'core/services/offline_queue_service.dart';
+import 'core/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,15 +19,20 @@ void main() async {
   await Hive.openBox('settings');
   await Hive.openBox('offline_queue');
 
+  // Initialize Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   await Supabase.initialize(
     url: 'https://wruxzfvpnhzihmboggyu.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndydXh6ZnZwbmh6aWhtYm9nZ3l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NjQ1NTQsImV4cCI6MjA5MTA0MDU1NH0.PZQEJTgm_kTFcZLUAyIlqkwIFApOc4FXkPBua4F-tbE',
   );
 
+  // Initialize push notifications
+  await PushNotificationService.initialize();
+
   await TrackingService.initialize();
 
-  // Auto-resume tracking if employee is checked in but not checked out
   // Auto-resume tracking if checked in but not checked out
   try {
     final user = Supabase.instance.client.auth.currentUser;
@@ -47,8 +55,7 @@ void main() async {
     }
   } catch (_) {}
 
-  // Auto-sync on reconnection. connectivity_plus v5 emits List<ConnectivityResult>,
-  // v4 emits a single ConnectivityResult — handle both to avoid runtime cast errors.
+  // Auto-sync on reconnection
   Connectivity().onConnectivityChanged.listen((dynamic result) async {
     final bool isOnline;
     if (result is List) {

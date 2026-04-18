@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "860141702307",
+    "project_id": "vartmaan-pulse-app",
+    "storage_bucket": "vartmaan-pulse-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:860141702307:android:1a2c6137d6322d4d9b4316",
+        "android_client_info": {
+          "package_name": "com.fieldtrackpro.field_track_pro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2VCamSPJ7ZVnDD2IUNm_JDBjYiioRi6Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
