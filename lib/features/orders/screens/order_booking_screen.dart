@@ -10,6 +10,7 @@ import '../../catalog/screens/product_catalog_screen.dart';
 import '../../../core/services/whatsapp_service.dart';
 import '../../../core/services/scheme_service.dart';
 import '../../../core/services/collection_service.dart';
+import '../../../core/services/push_notification_service.dart';
 
 class OrderBookingScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -392,12 +393,32 @@ class _OrderBookingScreenState extends State<OrderBookingScreen> {
             'p_reference_id': orderId,
           });
           // Check milestones & notify rank changes
-          try {
-            await SupabaseService.client.rpc('check_milestones',
-                params: {'p_user_id': SupabaseService.userId});
-            await SupabaseService.client.rpc('notify_rank_change',
-                params: {'p_user_id': SupabaseService.userId});
-          } catch (_) {}
+            try {
+              await SupabaseService.client.rpc('check_milestones',
+                  params: {'p_user_id': SupabaseService.userId});
+              await SupabaseService.client.rpc('notify_rank_change',
+                  params: {'p_user_id': SupabaseService.userId});
+            } catch (_) {}
+
+            // Deliver push notifications for rank changes & milestones
+            try {
+              final notifications = await SupabaseService.client
+                  .from('notifications')
+                  .select('id, user_id, title, body, type')
+                  .eq('is_read', false)
+                  .gte('created_at',
+                      DateTime.now().subtract(const Duration(minutes: 2)).toIso8601String())
+                  .limit(10);
+              for (final n in notifications as List) {
+                await PushNotificationService.sendToUser(
+                  userId: n['user_id'],
+                  title: n['title'],
+                  body: n['body'],
+                  data: {'type': n['type'] ?? 'general'},
+                );
+              }
+            } catch (_) {}
+
 
           await SupabaseService.client.rpc('award_loyalty_points', params: {
             'p_party_id': widget.party['id'],

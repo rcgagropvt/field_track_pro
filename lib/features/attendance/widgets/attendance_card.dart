@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/tracking_service.dart';
+import '../../../core/services/push_notification_service.dart';
 
 class AttendanceCard extends StatefulWidget {
   const AttendanceCard({super.key});
@@ -60,7 +61,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
       );
 
       if (selfie == null) {
-        _showSnack('Selfie is required for check-out', isError: true);
+        _showSnack('Selfie is required for check-in', isError: true);
         setState(() => _isChecking = false);
         return;
       }
@@ -77,9 +78,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
         selfieUrl = SupabaseService.client.storage
             .from('uploads')
             .getPublicUrl(fileName);
-      } catch (_) {
-        // If upload fails, continue without selfie URL
-      }
+      } catch (_) {}
 
       // Step 4: Mark attendance
       await SupabaseService.checkIn(
@@ -90,13 +89,31 @@ class _AttendanceCardState extends State<AttendanceCard> {
 
       await _loadAttendance();
       _showSnack('Checked in successfully!');
+
       // Auto-start location tracking
       try {
         await TrackingService.startTracking();
       } catch (_) {}
+
+      // Award XP for attendance
       try {
-        await TrackingService.startTracking();
-      } catch (_) {}
+        await SupabaseService.client.rpc('award_xp', params: {
+          'p_user_id': SupabaseService.userId,
+          'p_action': 'attendance',
+        });
+        // Check milestones & notify rank changes
+        try {
+          await SupabaseService.client.rpc('check_milestones',
+              params: {'p_user_id': SupabaseService.userId});
+          await SupabaseService.client.rpc('notify_rank_change',
+              params: {'p_user_id': SupabaseService.userId});
+        } catch (_) {}
+
+        // Deliver push notifications for any new alerts
+        await _deliverPushNotifications();
+      } catch (e) {
+        debugPrint('Attendance XP error: $e');
+      }
     } catch (e) {
       _showSnack('Check-in failed. Please try again.', isError: true);
     } finally {
@@ -148,11 +165,8 @@ class _AttendanceCardState extends State<AttendanceCard> {
 
       await _loadAttendance();
       _showSnack('Checked out! Good job today.');
-      // Auto-stop location tracking
-      try {
-        await TrackingService.stopTracking();
-      } catch (_) {}
 
+      // Auto-stop location tracking
       try {
         await TrackingService.stopTracking();
       } catch (_) {}
@@ -160,6 +174,29 @@ class _AttendanceCardState extends State<AttendanceCard> {
       _showSnack('Check-out failed. Please try again.', isError: true);
     } finally {
       if (mounted) setState(() => _isChecking = false);
+    }
+  }
+
+  /// Read recent unread notifications and fire push for each
+  Future<void> _deliverPushNotifications() async {
+    try {
+      final notifications = await SupabaseService.client
+          .from('notifications')
+          .select('id, user_id, title, body, type')
+          .eq('is_read', false)
+          .gte('created_at',
+              DateTime.now().subtract(const Duration(minutes: 2)).toIso8601String())
+          .limit(10);
+      for (final n in notifications as List) {
+        await PushNotificationService.sendToUser(
+          userId: n['user_id'],
+          title: n['title'],
+          body: n['body'],
+          data: {'type': n['type'] ?? 'general'},
+        );
+      }
+    } catch (e) {
+      debugPrint('Push delivery error: $e');
     }
   }
 
@@ -269,10 +306,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
               ),
             ],
           ),
-
           const SizedBox(height: 14),
-
-          // Time blocks
           Row(
             children: [
               _timeBlock(
@@ -294,10 +328,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
               ),
             ],
           ),
-
           const SizedBox(height: 14),
-
-          // HOW IT WORKS info
           if (!isCheckedIn)
             Container(
               padding: const EdgeInsets.all(10),
@@ -322,8 +353,6 @@ class _AttendanceCardState extends State<AttendanceCard> {
                 ],
               ),
             ),
-
-          // Button
           SizedBox(
             width: double.infinity,
             height: 46,
