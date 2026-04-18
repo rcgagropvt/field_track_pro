@@ -10,13 +10,14 @@ class TargetScreen extends StatefulWidget {
 
 class _TargetScreenState extends State<TargetScreen> {
   bool _loading = true;
-  Map<String, dynamic>? _target;
-  Map<String, dynamic> _achieved = {};
+  Map<String, dynamic>? _data;
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
 
-  final _months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  final _months = [
+    '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
 
   @override
   void initState() {
@@ -24,62 +25,20 @@ class _TargetScreenState extends State<TargetScreen> {
     _load();
   }
 
-  String _pad(int n) => n.toString().padLeft(2, '0');
-
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
       final uid = SupabaseService.userId!;
-
-      final targets = await SupabaseService.client
-          .from('targets')
-          .select()
-          .eq('user_id', uid)
-          .eq('month', _selectedMonth)
-          .eq('year', _selectedYear)
-          .limit(1);
-
-      _target = (targets as List).isNotEmpty ? targets.first : null;
-
-      final from = '$_selectedYear-${_pad(_selectedMonth)}-01T00:00:00.000';
-      final nextMonth = _selectedMonth == 12 ? 1 : _selectedMonth + 1;
-      final nextYear = _selectedMonth == 12 ? _selectedYear + 1 : _selectedYear;
-      final to = '$nextYear-${_pad(nextMonth)}-01T00:00:00.000';
-
-      final visits = await SupabaseService.client
-          .from('visits')
-          .select('id')
-          .eq('user_id', uid)
-          .gte('check_in_time', from)
-          .lt('check_in_time', to);
-
-      final orders = await SupabaseService.client
-          .from('orders')
-          .select('id, total_amount')
-          .eq('user_id', uid)
-          .gte('created_at', from)
-          .lt('created_at', to);
-
-      final parties = await SupabaseService.client
-          .from('parties')
-          .select('id')
-          .eq('user_id', uid)
-          .gte('created_at', from)
-          .lt('created_at', to);
-
-      double revenue = 0;
-      for (final o in orders as List) {
-        revenue += (o['total_amount'] as num?)?.toDouble() ?? 0;
-      }
+      final res = await SupabaseService.client.rpc('calculate_incentive',
+          params: {
+            'p_user_id': uid,
+            'p_month': _selectedMonth,
+            'p_year': _selectedYear
+          }) as List?;
 
       if (mounted) {
         setState(() {
-          _achieved = {
-            'visits': (visits as List).length,
-            'orders': (orders as List).length,
-            'revenue': revenue,
-            'parties': (parties as List).length,
-          };
+          _data = (res != null && res.isNotEmpty) ? res.first : null;
           _loading = false;
         });
       }
@@ -89,19 +48,13 @@ class _TargetScreenState extends State<TargetScreen> {
     }
   }
 
-  double _pct(String key, String targetKey) {
-    final t = (_target?[targetKey] as num?)?.toDouble() ?? 0;
-    final a = (_achieved[key] as num?)?.toDouble() ?? 0;
-    if (t == 0) return 0;
-    return (a / t * 100).clamp(0, 100);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('My Targets', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('My Targets',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
@@ -114,44 +67,46 @@ class _TargetScreenState extends State<TargetScreen> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : _target == null
+              : _data == null
                   ? _noTargetView()
                   : RefreshIndicator(
                       onRefresh: _load,
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
+                          _incentiveCard(),
+                          const SizedBox(height: 16),
                           _summaryCard(),
                           const SizedBox(height: 16),
                           _metricCard(
                             icon: Icons.store,
                             label: 'Visits',
-                            achieved: _achieved['visits'] ?? 0,
-                            target: _target!['target_visits'] ?? 0,
+                            achieved: _data!['out_achieved_visits'] ?? 0,
+                            target: _data!['out_target_visits'] ?? 0,
                             color: Colors.blue,
                             format: (v) => v.toInt().toString(),
                           ),
                           _metricCard(
                             icon: Icons.shopping_cart,
                             label: 'Orders',
-                            achieved: _achieved['orders'] ?? 0,
-                            target: _target!['target_orders'] ?? 0,
+                            achieved: _data!['out_achieved_orders'] ?? 0,
+                            target: _data!['out_target_orders'] ?? 0,
                             color: Colors.orange,
                             format: (v) => v.toInt().toString(),
                           ),
                           _metricCard(
                             icon: Icons.currency_rupee,
                             label: 'Revenue',
-                            achieved: _achieved['revenue'] ?? 0,
-                            target: _target!['target_revenue'] ?? 0,
+                            achieved: _data!['out_achieved_revenue'] ?? 0,
+                            target: _data!['out_target_revenue'] ?? 0,
                             color: Colors.green,
                             format: (v) => '₹${_fmt(v)}',
                           ),
                           _metricCard(
                             icon: Icons.person_add,
                             label: 'New Parties',
-                            achieved: _achieved['parties'] ?? 0,
-                            target: _target!['target_parties'] ?? 0,
+                            achieved: _data!['out_achieved_parties'] ?? 0,
+                            target: _data!['out_target_parties'] ?? 0,
                             color: Colors.purple,
                             format: (v) => v.toInt().toString(),
                           ),
@@ -164,96 +119,175 @@ class _TargetScreenState extends State<TargetScreen> {
     );
   }
 
-  String _fmt(double v) {
-    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
-    return v.toStringAsFixed(0);
-  }
+  Widget _incentiveCard() {
+    final baseIncentive =
+        ((_data!['out_base_incentive'] as num?)?.toDouble() ?? 0);
+    final earnedIncentive =
+        ((_data!['out_earned_incentive'] as num?)?.toDouble() ?? 0);
+    final pct =
+        ((_data!['out_achievement_pct'] as num?)?.toDouble() ?? 0);
+    final slabLabel = _data!['out_slab_label'] ?? '';
+    final itype = _data!['out_incentive_type'] ?? 'fixed';
 
-  Widget _monthPicker() => Container(
-        color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(children: [
-          const Icon(Icons.calendar_month, size: 18, color: Colors.grey),
-          const SizedBox(width: 8),
-          DropdownButton<int>(
-            value: _selectedMonth,
-            underline: const SizedBox(),
-            items: List.generate(12, (i) => DropdownMenuItem(
-              value: i + 1,
-              child: Text(_months[i + 1]),
-            )),
-            onChanged: (v) { setState(() => _selectedMonth = v!); _load(); },
-          ),
-          const SizedBox(width: 8),
-          DropdownButton<int>(
-            value: _selectedYear,
-            underline: const SizedBox(),
-            items: [2024, 2025, 2026, 2027].map((y) => DropdownMenuItem(
-              value: y, child: Text(y.toString()),
-            )).toList(),
-            onChanged: (v) { setState(() => _selectedYear = v!); _load(); },
-          ),
-          const Spacer(),
-          Text('${_months[_selectedMonth]} $_selectedYear',
-              style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        ]),
-      );
-
-  Widget _noTargetView() => Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.track_changes, size: 64, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          const Text('No target set for this month',
-              style: TextStyle(fontSize: 16, color: Colors.grey)),
-          const SizedBox(height: 8),
-          const Text('Ask your admin to set a monthly target',
-              style: TextStyle(fontSize: 13, color: Colors.grey)),
-        ]),
-      );
-
-  Widget _summaryCard() {
-    final metrics = ['visits', 'orders', 'revenue', 'parties'];
-    final keys = ['target_visits', 'target_orders', 'target_revenue', 'target_parties'];
-    double totalPct = 0;
-    int count = 0;
-    for (int i = 0; i < metrics.length; i++) {
-      final t = (_target![keys[i]] as num?)?.toDouble() ?? 0;
-      if (t > 0) {
-        totalPct += _pct(metrics[i], keys[i]);
-        count++;
-      }
+    if (baseIncentive <= 0 && itype == 'fixed') {
+      return const SizedBox.shrink();
     }
-    final avgPct = count > 0 ? totalPct / count : 0;
+
+    final isEarning = earnedIncentive > 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primary.withOpacity(0.7)],
+          colors: isEarning
+              ? [Colors.amber.shade600, Colors.orange.shade700]
+              : [Colors.grey.shade500, Colors.grey.shade600],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          if (isEarning)
+            BoxShadow(
+                color: Colors.amber.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(isEarning ? Icons.emoji_events : Icons.lock_outline,
+                color: Colors.white, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              isEarning ? 'INCENTIVE EARNED' : 'INCENTIVE LOCKED',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  letterSpacing: 2),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '₹${_fmt(earnedIncentive)}',
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 40,
+              fontWeight: FontWeight.bold),
+        ),
+        if (itype == 'fixed' && baseIncentive > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            'of ₹${_fmt(baseIncentive)} possible',
+            style: TextStyle(
+                color: Colors.white.withOpacity(0.8), fontSize: 13),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            slabLabel,
+            style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 12),
+          ),
+        ),
+        if (!isEarning && itype == 'fixed') ...[
+          const SizedBox(height: 10),
+          Text(
+            'Reach 70% to start earning incentive',
+            style: TextStyle(
+                color: Colors.white.withOpacity(0.7), fontSize: 11),
+          ),
+        ],
+        if (itype == 'fixed' && pct < 100 && pct >= 70) ...[
+          const SizedBox(height: 10),
+          _nextSlabHint(pct, baseIncentive),
+        ],
+      ]),
+    );
+  }
+
+  Widget _nextSlabHint(double pct, double base) {
+    String hint;
+    if (pct < 80) {
+      hint =
+          'Reach 80% to earn ₹${_fmt(base * 0.75)} (+₹${_fmt(base * 0.75 - base * 0.5)})';
+    } else if (pct < 90) {
+      hint =
+          'Reach 90% to earn ₹${_fmt(base * 0.9)} (+₹${_fmt(base * 0.9 - base * 0.75)})';
+    } else {
+      hint =
+          'Reach 100% to earn full ₹${_fmt(base)} (+₹${_fmt(base - base * 0.9)})';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.arrow_upward, color: Colors.white, size: 14),
+        const SizedBox(width: 4),
+        Text(hint,
+            style: const TextStyle(color: Colors.white, fontSize: 11)),
+      ]),
+    );
+  }
+
+  Widget _summaryCard() {
+    final pct =
+        ((_data!['out_achievement_pct'] as num?)?.toDouble() ?? 0);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary,
+            AppColors.primary.withOpacity(0.7)
+          ],
         ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(children: [
-        const Text('Overall Achievement', style: TextStyle(color: Colors.white70, fontSize: 13)),
+        const Text('Overall Achievement',
+            style: TextStyle(color: Colors.white70, fontSize: 13)),
         const SizedBox(height: 8),
-        Text('${avgPct.toStringAsFixed(0)}%',
-            style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold)),
+        Text('${pct.toStringAsFixed(0)}%',
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 48,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: LinearProgressIndicator(
-            value: avgPct / 100,
+            value: pct / 100,
             backgroundColor: Colors.white24,
             valueColor: AlwaysStoppedAnimation(
-              avgPct >= 80 ? Colors.greenAccent : avgPct >= 50 ? Colors.orange : Colors.redAccent,
+              pct >= 80
+                  ? Colors.greenAccent
+                  : pct >= 50
+                      ? Colors.orange
+                      : Colors.redAccent,
             ),
             minHeight: 10,
           ),
         ),
         const SizedBox(height: 8),
-        Text(_motivational(avgPct.toDouble()),
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(_motivational(pct),
+            style:
+                const TextStyle(color: Colors.white70, fontSize: 12)),
       ]),
     );
   }
@@ -264,6 +298,69 @@ class _TargetScreenState extends State<TargetScreen> {
     if (pct >= 50) return '📈 Good progress, stay focused!';
     return '🚀 Let\'s pick up the pace!';
   }
+
+  String _fmt(double v) {
+    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  Widget _monthPicker() => Container(
+        color: Colors.white,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(children: [
+          const Icon(Icons.calendar_month, size: 18, color: Colors.grey),
+          const SizedBox(width: 8),
+          DropdownButton<int>(
+            value: _selectedMonth,
+            underline: const SizedBox(),
+            items: List.generate(
+                12,
+                (i) => DropdownMenuItem(
+                      value: i + 1,
+                      child: Text(_months[i + 1]),
+                    )),
+            onChanged: (v) {
+              setState(() => _selectedMonth = v!);
+              _load();
+            },
+          ),
+          const SizedBox(width: 8),
+          DropdownButton<int>(
+            value: _selectedYear,
+            underline: const SizedBox(),
+            items: [2024, 2025, 2026, 2027]
+                .map((y) => DropdownMenuItem(
+                      value: y,
+                      child: Text(y.toString()),
+                    ))
+                .toList(),
+            onChanged: (v) {
+              setState(() => _selectedYear = v!);
+              _load();
+            },
+          ),
+          const Spacer(),
+          Text('${_months[_selectedMonth]} $_selectedYear',
+              style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ]),
+      );
+
+  Widget _noTargetView() => Center(
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.track_changes,
+                  size: 64, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              const Text('No target set for this month',
+                  style: TextStyle(fontSize: 16, color: Colors.grey)),
+              const SizedBox(height: 8),
+              const Text('Ask your admin to set a monthly target',
+                  style: TextStyle(fontSize: 13, color: Colors.grey)),
+            ]),
+      );
 
   Widget _metricCard({
     required IconData icon,
@@ -283,47 +380,66 @@ class _TargetScreenState extends State<TargetScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04), blurRadius: 8)
+        ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(label,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15)),
+              const Spacer(),
+              Text('${pct.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                      color: pct >= 80
+                          ? Colors.green
+                          : pct >= 50
+                              ? Colors.orange
+                              : Colors.red,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
+            ]),
+            const SizedBox(height: 12),
+            Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(format(a),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 20)),
+                  Text('/ ${format(t)}',
+                      style: const TextStyle(
+                          color: Colors.grey, fontSize: 14)),
+                ]),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct / 100,
+                backgroundColor: color.withOpacity(0.1),
+                valueColor: AlwaysStoppedAnimation(
+                  pct >= 80
+                      ? Colors.green
+                      : pct >= 50
+                          ? Colors.orange
+                          : Colors.red,
+                ),
+                minHeight: 8,
+              ),
             ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const Spacer(),
-          Text('${pct.toStringAsFixed(0)}%',
-              style: TextStyle(
-                  color: pct >= 80 ? Colors.green : pct >= 50 ? Colors.orange : Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16)),
-        ]),
-        const SizedBox(height: 12),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(format(a), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-          Text('/ ${format(t)}', style: const TextStyle(color: Colors.grey, fontSize: 14)),
-        ]),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: pct / 100,
-            backgroundColor: color.withOpacity(0.1),
-            valueColor: AlwaysStoppedAnimation(
-              pct >= 80 ? Colors.green : pct >= 50 ? Colors.orange : Colors.red,
-            ),
-            minHeight: 8,
-          ),
-        ),
-      ]),
+          ]),
     );
   }
 }
-
-
