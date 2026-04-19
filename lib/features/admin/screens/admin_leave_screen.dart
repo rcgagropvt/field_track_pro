@@ -37,18 +37,21 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
       final results = await Future.wait([
         SupabaseService.client
             .from('leave_applications')
-            .select('*, leave_types!inner(name, code), profiles!inner(full_name)')
+            .select(
+                '*, leave_types(name, code), profiles!leave_applications_user_id_fkey(full_name)')
             .eq('status', 'pending')
             .order('created_at', ascending: true),
         SupabaseService.client
             .from('leave_applications')
-            .select('*, leave_types!inner(name, code), profiles!inner(full_name)')
+            .select(
+                '*, leave_types(name, code), profiles!leave_applications_user_id_fkey(full_name)')
             .neq('status', 'pending')
             .order('created_at', ascending: false)
             .limit(50),
         SupabaseService.client
             .from('attendance_regularizations')
-            .select('*, profiles!inner(full_name)')
+            .select(
+                '*, profiles!attendance_regularizations_user_id_fkey(full_name)')
             .eq('status', 'pending')
             .order('created_at', ascending: true),
       ]);
@@ -56,6 +59,8 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
       _pending = List<Map<String, dynamic>>.from(results[0] as List);
       _history = List<Map<String, dynamic>>.from(results[1] as List);
       _regularizations = List<Map<String, dynamic>>.from(results[2] as List);
+      debugPrint('Pending leaves: ${_pending.length}');
+      debugPrint('Pending data: $_pending');
     } catch (e) {
       debugPrint('Admin leave load error: $e');
     }
@@ -118,7 +123,8 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
 
   Widget _historyTab() {
     if (_history.isEmpty) {
-      return const Center(child: Text('No history', style: TextStyle(color: Colors.grey)));
+      return const Center(
+          child: Text('No history', style: TextStyle(color: Colors.grey)));
     }
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -196,8 +202,7 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(6),
@@ -225,8 +230,10 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
               ),
               if (app['half_day_type'] != null) ...[
                 const SizedBox(width: 8),
-                Text('(${app['half_day_type'] == 'first_half' ? '1st Half' : '2nd Half'})',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                Text(
+                    '(${app['half_day_type'] == 'first_half' ? '1st Half' : '2nd Half'})',
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               ],
             ],
           ),
@@ -269,8 +276,8 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
                     onPressed: () => _reviewLeave(app['id'], 'approved'),
                     icon: const Icon(Icons.check, size: 18),
                     label: const Text('Approve'),
-                    style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green),
+                    style:
+                        FilledButton.styleFrom(backgroundColor: Colors.green),
                   ),
                 ),
               ],
@@ -324,71 +331,69 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
     if (confirm != true) return;
 
     try {
-      // Update leave application
+      // First, get the leave application details BEFORE updating
+      final app = await SupabaseService.client
+          .from('leave_applications')
+          .select('user_id, leave_type_id, days')
+          .eq('id', id)
+          .single();
+
+      // Update leave application status
       await SupabaseService.client.from('leave_applications').update({
         'status': status,
         'reviewed_by': SupabaseService.userId,
         'reviewed_at': DateTime.now().toUtc().toIso8601String(),
-        'review_remarks': remarksController.text.isNotEmpty
-            ? remarksController.text
-            : null,
+        'review_remarks':
+            remarksController.text.isNotEmpty ? remarksController.text : null,
       }).eq('id', id);
 
       // If approved, update leave balance
       if (status == 'approved') {
-        final app = _pending.firstWhere((a) => a['id'] == id);
-        final days = (app['days'] as num).toDouble();
         final userId = app['user_id'];
         final leaveTypeId = app['leave_type_id'];
+        final days = (app['days'] as num).toDouble();
         final now = DateTime.now();
         final year = now.month >= 4 ? now.year : now.year - 1;
 
-        await SupabaseService.client
+        // Get current balance and update
+        final balance = await SupabaseService.client
             .from('leave_balances')
-            .update({
-          'used': SupabaseService.client.rpc('', params: {}).toString(), // can't do arithmetic in update
-        }).eq('user_id', userId);
+            .select('id, used')
+            .eq('user_id', userId)
+            .eq('leave_type_id', leaveTypeId)
+            .eq('year', year)
+            .maybeSingle();
 
-        // Use raw SQL via RPC for atomic update
-        try {
-          await SupabaseService.client.rpc('approve_leave_balance', params: {
-            'p_user_id': userId,
-            'p_leave_type_id': leaveTypeId,
-            'p_year': year,
-            'p_days': days,
-          });
-        } catch (e) {
-          // Fallback: manual update
-          final balance = await SupabaseService.client
-              .from('leave_balances')
-              .select('id, used')
-              .eq('user_id', userId)
-              .eq('leave_type_id', leaveTypeId)
-              .eq('year', year)
-              .maybeSingle();
-          if (balance != null) {
-            final currentUsed = (balance['used'] as num).toDouble();
-            await SupabaseService.client
-                .from('leave_balances')
-                .update({
-              'used': currentUsed + days,
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
-            }).eq('id', balance['id']);
-          }
+        if (balance != null) {
+          final currentUsed = (balance['used'] as num).toDouble();
+          await SupabaseService.client.from('leave_balances').update({
+            'used': currentUsed + days,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', balance['id']);
+          debugPrint(
+              'Leave balance updated: used ${currentUsed} -> ${currentUsed + days}');
+        } else {
+          debugPrint(
+              'No leave balance found for user=$userId type=$leaveTypeId year=$year');
         }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Leave ${status}!'),
-          backgroundColor: status == 'approved' ? Colors.green : Colors.red,
-        ),
-      );
-      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Leave $status!'),
+            backgroundColor: status == 'approved' ? Colors.green : Colors.red,
+          ),
+        );
+        _loadData();
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      debugPrint('Review leave error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -448,12 +453,11 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(profile['full_name'] ?? 'Unknown',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600)),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
                           Text(DateFormat('d MMM yyyy').format(date),
                               style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600)),
+                                  fontSize: 12, color: Colors.grey.shade600)),
                         ],
                       ),
                     ),
@@ -474,15 +478,14 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
                   ),
                 const SizedBox(height: 4),
                 Text('Reason: ${reg['reason']}',
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.grey.shade700)),
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            _reviewRegularization(reg, 'rejected'),
+                        onPressed: () => _reviewRegularization(reg, 'rejected'),
                         style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
                             side: const BorderSide(color: Colors.red)),
@@ -492,8 +495,7 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: () =>
-                            _reviewRegularization(reg, 'approved'),
+                        onPressed: () => _reviewRegularization(reg, 'approved'),
                         style: FilledButton.styleFrom(
                             backgroundColor: Colors.green),
                         child: const Text('Approve'),
@@ -512,9 +514,7 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
   Future<void> _reviewRegularization(
       Map<String, dynamic> reg, String status) async {
     try {
-      await SupabaseService.client
-          .from('attendance_regularizations')
-          .update({
+      await SupabaseService.client.from('attendance_regularizations').update({
         'status': status,
         'reviewed_by': SupabaseService.userId,
         'reviewed_at': DateTime.now().toUtc().toIso8601String(),
@@ -543,8 +543,7 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
               reg['requested_check_out'] != null) {
             final cin = DateTime.parse(reg['requested_check_in']);
             final cout = DateTime.parse(reg['requested_check_out']);
-            updates['work_hours'] =
-                cout.difference(cin).inMinutes / 60.0;
+            updates['work_hours'] = cout.difference(cin).inMinutes / 60.0;
             updates['status'] = 'present';
           }
           await SupabaseService.client
@@ -569,12 +568,9 @@ class _AdminLeaveScreenState extends State<AdminLeaveScreen>
               reg['requested_check_out'] != null) {
             final cin = DateTime.parse(reg['requested_check_in']);
             final cout = DateTime.parse(reg['requested_check_out']);
-            newRecord['work_hours'] =
-                cout.difference(cin).inMinutes / 60.0;
+            newRecord['work_hours'] = cout.difference(cin).inMinutes / 60.0;
           }
-          await SupabaseService.client
-              .from('attendance')
-              .insert(newRecord);
+          await SupabaseService.client.from('attendance').insert(newRecord);
         }
       }
 

@@ -58,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen>
       if (profile != null && profile['role'] == 'admin') {
         Navigator.pushReplacementNamed(context, '/admin-main');
       } else {
-        Navigator.pushReplacementNamed(context, '/employee-main');
+        Navigator.pushReplacementNamed(context, '/main');
       }
     } catch (_) {
       if (mounted) Navigator.pushReplacementNamed(context, AppRouter.login);

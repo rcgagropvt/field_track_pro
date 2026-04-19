@@ -28,6 +28,7 @@ import 'ai_command_center_screen.dart';
 import 'admin_loyalty_screen.dart';
 import 'ai_chat_screen.dart';
 import 'admin_leave_screen.dart';
+import 'admin_payroll_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -71,6 +72,7 @@ class _AdminShellState extends State<AdminShell> {
     AdminLoyaltyScreen(),
     AiChatScreen(),
     AdminLeaveScreen(),
+    AdminPayrollScreen(),
   ];
 
   @override
@@ -244,6 +246,7 @@ class _AdminShellState extends State<AdminShell> {
                       _subItem(Icons.assignment, 'Assign Task', 6),
                       _subItem(Icons.track_changes, 'Set Targets', 14),
                       _subItem(Icons.event_busy, 'Leave Management', 25),
+                      _subItem(Icons.account_balance_wallet, 'Payroll', 26),
                     ],
                   ),
 
