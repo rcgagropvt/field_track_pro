@@ -1,10 +1,16 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import 'admin_shell.dart';
+
+// ─── Supabase project config (already in your app — pull from env/constants)
+const _supabaseUrl = 'https://wruxzfvpnhzihmboggyu.supabase.co';
+const _anonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndydXh6ZnZwbmh6aWhtYm9nZ3l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NjQ1NTQsImV4cCI6MjA5MTA0MDU1NH0.PZQEJTgm_kTFcZLUAyIlqkwIFApOc4FXkPBua4F-tbE';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key});
@@ -19,7 +25,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   bool _isLoading = false;
 
   final _suggestions = [
-    'How is Advait performing this month?',
+    'How is the team performing this month?',
     'Which parties are at churn risk?',
     'Show me today\'s anomalies',
     'Who has the most ghost visits?',
@@ -38,58 +44,58 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.dispose();
   }
 
+  // ── Direct HTTP call with anon key — bypasses ES256 session JWT issue ──
   Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty || _isLoading) return;
     _controller.clear();
 
     setState(() {
-      _messages.add(_ChatMessage(text: text, isUser: true, time: DateTime.now()));
+      _messages.add(_ChatMessage(
+          text: text.trim(), isUser: true, time: DateTime.now()));
       _isLoading = true;
     });
     _scrollToBottom();
 
     try {
-      final response = await SupabaseService.client.functions.invoke(
-        'ai-chat',
-        body: {'question': text},
-      );
+      final uri = Uri.parse('$_supabaseUrl/functions/v1/ai-chat');
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_anonKey',
+              'apikey': _anonKey,
+            },
+            body: jsonEncode({'question': text.trim()}),
+          )
+          .timeout(const Duration(seconds: 60));
 
-      final data = response.data;
-      if (data is Map && data['answer'] != null) {
-        final model = data['model_used'] ?? 'unknown';
-        final context = data['context_summary'] as Map<String, dynamic>? ?? {};
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final answer = data['answer']?.toString() ?? 'No response received.';
+        final model = data['model_used']?.toString() ?? 'unknown';
+        final ctx = data['context_summary'] as Map<String, dynamic>? ?? {};
+        final contextInfo =
+            '${ctx['employees'] ?? 0} employees · ${ctx['parties'] ?? 0} parties · ${ctx['anomalies'] ?? 0} anomalies analyzed';
+
         setState(() {
           _messages.add(_ChatMessage(
-            text: data['answer'],
+            text: answer,
             isUser: false,
             time: DateTime.now(),
             model: model,
-            contextInfo: '${context['employees'] ?? 0} employees · ${context['parties'] ?? 0} parties · ${context['anomalies'] ?? 0} anomalies analyzed',
-          ));
-        });
-      } else if (data is Map && data['error'] != null) {
-        setState(() {
-          _messages.add(_ChatMessage(
-            text: 'Error: ${data['error']}${data['details'] != null ? '\n${data['details']}' : ''}',
-            isUser: false,
-            isError: true,
-            time: DateTime.now(),
+            contextInfo: contextInfo,
           ));
         });
       } else {
-        setState(() {
-          _messages.add(_ChatMessage(
-            text: 'Unexpected response. Please try again.',
-            isUser: false,
-            isError: true,
-            time: DateTime.now(),
-          ));
-        });
+        final body = jsonDecode(response.body);
+        throw Exception(body['error'] ?? 'HTTP ${response.statusCode}');
       }
     } catch (e) {
+      debugPrint('AI Chat error: $e');
       setState(() {
         _messages.add(_ChatMessage(
-          text: 'Connection error: $e',
+          text: 'Error: $e\n\nPlease try again.',
           isUser: false,
           isError: true,
           time: DateTime.now(),
@@ -134,14 +140,16 @@ class _AiChatScreenState extends State<AiChatScreen> {
               ),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+            child: const Icon(Icons.auto_awesome,
+                size: 18, color: Colors.white),
           ),
           const SizedBox(width: 10),
           const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Vartmaan AI',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
               Text('Ask anything about your business',
                   style: TextStyle(fontSize: 10, color: Colors.grey)),
             ],
@@ -150,7 +158,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
         actions: [
           if (_messages.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.white38),
+              icon: const Icon(Icons.delete_outline,
+                  color: Colors.white38),
               onPressed: () => setState(() => _messages.clear()),
               tooltip: 'Clear chat',
             ),
@@ -158,7 +167,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
       ),
       body: Column(children: [
         Expanded(
-          child: _messages.isEmpty ? _buildWelcome() : _buildMessages(),
+          child:
+              _messages.isEmpty ? _buildWelcome() : _buildMessages(),
         ),
         _buildInput(),
       ]),
@@ -168,57 +178,79 @@ class _AiChatScreenState extends State<AiChatScreen> {
   Widget _buildWelcome() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const SizedBox(height: 20),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF3DBFFF)],
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(Icons.auto_awesome, size: 48, color: Colors.white),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Center(
-          child: Text('Vartmaan AI Assistant',
-              style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 6),
-        const Center(
-          child: Text('Powered by real-time data from your field operations',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
-        ),
-        const SizedBox(height: 30),
-        const Text('Try asking:',
-            style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _suggestions.map((s) => GestureDetector(
-            onTap: () => _sendMessage(s),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1D2E),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2A2D3E)),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF6C63FF)),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(s, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6C63FF), Color(0xFF3DBFFF)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              ]),
+                child: const Icon(Icons.auto_awesome,
+                    size: 48, color: Colors.white),
+              ),
             ),
-          )).toList(),
-        ),
-      ]),
+            const SizedBox(height: 20),
+            const Center(
+              child: Text('Vartmaan AI Assistant',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 6),
+            const Center(
+              child: Text(
+                  'Powered by real-time data from your field operations',
+                  style:
+                      TextStyle(color: Colors.grey, fontSize: 12)),
+            ),
+            const SizedBox(height: 30),
+            const Text('Try asking:',
+                style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _suggestions
+                  .map((s) => GestureDetector(
+                        onTap: () => _sendMessage(s),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1D2E),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: const Color(0xFF2A2D3E)),
+                          ),
+                          child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.chat_bubble_outline,
+                                    size: 14,
+                                    color: Color(0xFF6C63FF)),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(s,
+                                      style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12)),
+                                ),
+                              ]),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ]),
     );
   }
 
@@ -239,7 +271,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
   Widget _buildBubble(_ChatMessage msg) {
     final isUser = msg.isUser;
     return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      alignment:
+          isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: EdgeInsets.only(
           bottom: 12,
@@ -249,7 +282,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: msg.isError
-              ? Colors.red.withOpacity(0.15)
+              ? Colors.red.withValues(alpha: 0.15)
               : isUser
                   ? const Color(0xFF6C63FF)
                   : const Color(0xFF1A1D2E),
@@ -259,57 +292,80 @@ class _AiChatScreenState extends State<AiChatScreen> {
             bottomLeft: Radius.circular(isUser ? 16 : 4),
             bottomRight: Radius.circular(isUser ? 4 : 16),
           ),
-          border: isUser ? null : Border.all(color: const Color(0xFF2A2D3E)),
+          border: isUser
+              ? null
+              : Border.all(color: const Color(0xFF2A2D3E)),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (!isUser && !msg.isError) ...[
-            Row(children: [
-              const Icon(Icons.auto_awesome, size: 12, color: Color(0xFF6C63FF)),
-              const SizedBox(width: 6),
-              const Text('Vartmaan AI',
-                  style: TextStyle(color: Color(0xFF6C63FF), fontSize: 10, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              if (msg.model != null)
-                Text(msg.model!, style: const TextStyle(color: Colors.white24, fontSize: 9)),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser && !msg.isError) ...[
+                Row(children: [
+                  const Icon(Icons.auto_awesome,
+                      size: 12, color: Color(0xFF6C63FF)),
+                  const SizedBox(width: 6),
+                  const Text('Vartmaan AI',
+                      style: TextStyle(
+                          color: Color(0xFF6C63FF),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  if (msg.model != null)
+                    Text(msg.model!,
+                        style: const TextStyle(
+                            color: Colors.white24,
+                            fontSize: 9)),
+                ]),
+                const SizedBox(height: 8),
+              ],
+              SelectableText(
+                msg.text,
+                style: TextStyle(
+                  color: msg.isError
+                      ? Colors.red.shade300
+                      : Colors.white,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(children: [
+                Text(
+                  DateFormat('hh:mm a').format(msg.time),
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      fontSize: 9),
+                ),
+                if (msg.contextInfo != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(msg.contextInfo!,
+                        style: TextStyle(
+                            color: Colors.white
+                                .withValues(alpha: 0.2),
+                            fontSize: 9),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+                if (!isUser) ...[
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(
+                          ClipboardData(text: msg.text));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Copied to clipboard'),
+                            duration: Duration(seconds: 1)),
+                      );
+                    },
+                    child: Icon(Icons.copy,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.3)),
+                  ),
+                ],
+              ]),
             ]),
-            const SizedBox(height: 8),
-          ],
-          SelectableText(
-            msg.text,
-            style: TextStyle(
-              color: msg.isError ? Colors.red.shade300 : Colors.white,
-              fontSize: 13,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(children: [
-            Text(
-              DateFormat('hh:mm a').format(msg.time),
-              style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9),
-            ),
-            if (msg.contextInfo != null) ...[
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(msg.contextInfo!,
-                    style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 9),
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ],
-            if (!isUser) ...[
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: msg.text));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
-                  );
-                },
-                child: Icon(Icons.copy, size: 14, color: Colors.white.withOpacity(0.3)),
-              ),
-            ],
-          ]),
-        ]),
       ),
     );
   }
@@ -327,12 +383,16 @@ class _AiChatScreenState extends State<AiChatScreen> {
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           const SizedBox(
-            width: 16, height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6C63FF)),
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: Color(0xFF6C63FF)),
           ),
           const SizedBox(width: 10),
           Text('Analyzing your data...',
-              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 12)),
         ]),
       ),
     );
@@ -340,10 +400,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Widget _buildInput() {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          MediaQuery.of(context).padding.bottom + 12),
       decoration: const BoxDecoration(
         color: Color(0xFF151729),
-        border: Border(top: BorderSide(color: Color(0xFF2A2D3E))),
+        border:
+            Border(top: BorderSide(color: Color(0xFF2A2D3E))),
       ),
       child: Row(children: [
         Expanded(
@@ -355,15 +420,21 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
             child: TextField(
               controller: _controller,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
-                hintText: 'Ask about your team, visits, revenue...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+                hintText:
+                    'Ask about your team, visits, revenue...',
+                hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    fontSize: 13),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18, vertical: 12),
               ),
               textInputAction: TextInputAction.send,
-              onSubmitted: _isLoading ? null : _sendMessage,
+              onSubmitted:
+                  _isLoading ? null : (v) => _sendMessage(v),
               maxLines: 3,
               minLines: 1,
             ),
@@ -371,19 +442,30 @@ class _AiChatScreenState extends State<AiChatScreen> {
         ),
         const SizedBox(width: 8),
         GestureDetector(
-          onTap: _isLoading ? null : () => _sendMessage(_controller.text),
+          onTap: _isLoading
+              ? null
+              : () => _sendMessage(_controller.text),
           child: Container(
-            width: 44, height: 44,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               gradient: _isLoading
                   ? null
-                  : const LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF3DBFFF)]),
-              color: _isLoading ? Colors.grey.shade800 : null,
+                  : const LinearGradient(colors: [
+                      Color(0xFF6C63FF),
+                      Color(0xFF3DBFFF)
+                    ]),
+              color: _isLoading
+                  ? const Color(0xFF2A2D3E)
+                  : null,
               borderRadius: BorderRadius.circular(22),
             ),
             child: Icon(
-              _isLoading ? Icons.hourglass_empty : Icons.send_rounded,
-              color: Colors.white, size: 20,
+              _isLoading
+                  ? Icons.hourglass_empty
+                  : Icons.send_rounded,
+              color: Colors.white,
+              size: 20,
             ),
           ),
         ),
