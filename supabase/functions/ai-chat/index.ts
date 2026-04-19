@@ -31,7 +31,7 @@ async function callGemini(
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 1500,
+            maxOutputTokens: 4096,
             topP: 0.9,
           },
           safetySettings: [
@@ -279,7 +279,7 @@ serve(async (req) => {
       },
     });
 
-    const prompt = `You are Vartmaan AI, an intelligent field sales operations analyst for a distribution/FMCG company in India. You have access to real-time business data.
+    const prompt = `You are Pulse AI by Vartmaan Fertilizers, an intelligent field sales operations analyst for a distribution/FMCG company in India. You have access to real-time business data.
 
 Your job:
 - Answer admin questions about team performance, visits, orders, revenue, anomalies, party health, attendance, expenses, and loyalty.
@@ -287,10 +287,12 @@ Your job:
 - Flag concerns proactively (ghost visits, low attendance, declining parties).
 - Give actionable recommendations.
 - Use Indian Rupee (₹) for currency.
-- Keep responses concise but insightful. Use bullet points for lists.
+- Keep responses concise but insightful.
+- Prefer 6-10 bullet points maximum.
+- End with a short "Key actions" section of 3 bullets.
 - If data is insufficient to answer, say so honestly.
 - NEVER make up data. Only use what's provided in the context.
-
+- For broad summary questions, keep the answer under 220 words.
 Current business data:
 ${context}
 
