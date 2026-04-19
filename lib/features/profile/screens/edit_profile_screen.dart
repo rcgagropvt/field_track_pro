@@ -25,7 +25,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameCtrl = TextEditingController(text: widget.profile['full_name'] ?? '');
     _phoneCtrl = TextEditingController(text: widget.profile['phone'] ?? '');
     _deptCtrl = TextEditingController(text: widget.profile['department'] ?? '');
-    _designCtrl = TextEditingController(text: widget.profile['designation'] ?? '');
+    _designCtrl =
+        TextEditingController(text: widget.profile['designation'] ?? '');
   }
 
   Future<void> _save() async {
@@ -45,7 +46,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             content: const Text('Profile updated!'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
         Navigator.pop(context, true);
@@ -53,7 +55,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -78,13 +81,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            CustomTextField(controller: _nameCtrl, label: 'Full Name', prefixIcon: Icons.person_outline),
+            CustomTextField(
+                controller: _nameCtrl,
+                label: 'Full Name',
+                prefixIcon: Icons.person_outline),
             const SizedBox(height: 14),
-            CustomTextField(controller: _phoneCtrl, label: 'Phone', prefixIcon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+            CustomTextField(
+                controller: _phoneCtrl,
+                label: 'Phone',
+                prefixIcon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone),
             const SizedBox(height: 14),
-            CustomTextField(controller: _deptCtrl, label: 'Department', prefixIcon: Icons.business_rounded),
+            CustomTextField(
+                controller: _deptCtrl,
+                label: 'Department',
+                prefixIcon: Icons.business_rounded),
             const SizedBox(height: 14),
-            CustomTextField(controller: _designCtrl, label: 'Designation', prefixIcon: Icons.badge_rounded),
+            CustomTextField(
+                controller: _designCtrl,
+                label: 'Designation',
+                prefixIcon: Icons.badge_rounded),
             const SizedBox(height: 14),
 
             // Email (read only)
@@ -92,16 +108,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               label: 'Email',
               prefixIcon: Icons.email_outlined,
               readOnly: true,
-              controller: TextEditingController(text: widget.profile['email'] ?? ''),
+              controller:
+                  TextEditingController(text: widget.profile['email'] ?? ''),
             ),
 
             const SizedBox(height: 32),
-            CustomButton(text: 'Save Changes', onPressed: _save, isLoading: _isLoading, icon: Icons.save_rounded),
+            CustomButton(
+                text: 'Save Changes',
+                onPressed: _save,
+                isLoading: _isLoading,
+                icon: Icons.save_rounded),
           ],
         ),
       ),
     );
   }
 }
-
-

@@ -48,8 +48,8 @@ class _LoginScreenState extends State<LoginScreen> {
             content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -78,23 +78,29 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 60),
 
-                // Logo
+                // ── Logo ────────────────────────────────────────────────
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(
-                    Icons.location_on_rounded,
-                    size: 40,
-                    color: AppColors.white,
+                  child: Image.asset(
+                    'assets/launcher_icon.png',
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.location_on_rounded,
+                      size: 40,
+                      color: AppColors.white,
+                    ),
                   ),
                 ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
 
                 const SizedBox(height: 32),
 
-                // Title
+                // ── Title ───────────────────────────────────────────────
                 const Text(
                   'Welcome back',
                   style: TextStyle(
@@ -118,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 40),
 
-                // Email
+                // ── Email ───────────────────────────────────────────────
                 CustomTextField(
                   controller: _emailController,
                   label: 'Email',
@@ -137,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 16),
 
-                // Password
+                // ── Password ────────────────────────────────────────────
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
@@ -166,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Login Button
+                // ── Sign In button ──────────────────────────────────────
                 CustomButton(
                   text: 'Sign In',
                   onPressed: _login,
@@ -178,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 24),
 
-                // Register Link
+                // ── Register link ───────────────────────────────────────
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -207,5 +213,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
-

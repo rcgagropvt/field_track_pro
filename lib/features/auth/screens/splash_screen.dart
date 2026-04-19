@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../router/app_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -18,20 +19,26 @@ class _SplashScreenState extends State<SplashScreen> {
     _navigate();
   }
 
-// REPLACE _navigate() entirely
   Future<void> _navigate() async {
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
+    // Check if first launch
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenWelcome = prefs.getBool('has_seen_welcome') ?? false;
+
+    if (!hasSeenWelcome) {
+      Navigator.pushReplacementNamed(context, AppRouter.welcome);
+      return;
+    }
+
     final session = SupabaseService.client.auth.currentSession;
 
     if (session == null) {
-      // Not logged in → go to login
       Navigator.pushReplacementNamed(context, AppRouter.login);
       return;
     }
 
-    // ✅ Check role and route accordingly
     try {
       final profile = await SupabaseService.getProfile();
       final role = profile?['role'] ?? 'employee';
@@ -42,7 +49,6 @@ class _SplashScreenState extends State<SplashScreen> {
         Navigator.pushReplacementNamed(context, AppRouter.main);
       }
     } catch (e) {
-      // If profile fetch fails, default to employee view
       Navigator.pushReplacementNamed(context, AppRouter.main);
     }
   }
@@ -56,27 +62,34 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // ── App logo ──────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: AppColors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(
-                  Icons.location_on_rounded,
-                  size: 64,
-                  color: AppColors.white,
+                child: Image.asset(
+                  'assets/launcher_icon.png',
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.location_on_rounded,
+                    size: 64,
+                    color: AppColors.white,
+                  ),
                 ),
               )
                   .animate()
-                  .scale(
-                    duration: 600.ms,
-                    curve: Curves.elasticOut,
-                  )
+                  .scale(duration: 600.ms, curve: Curves.elasticOut)
                   .fadeIn(duration: 400.ms),
+
               const SizedBox(height: 24),
+
+              // ── App name ──────────────────────────────────────────────
               const Text(
-                'FieldTrack',
+                'Vartmaan Pulse',
                 style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w700,
@@ -87,6 +100,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   .animate(delay: 300.ms)
                   .fadeIn(duration: 500.ms)
                   .slideY(begin: 0.3, end: 0),
+
               const Text(
                 'PRO',
                 style: TextStyle(
@@ -96,7 +110,9 @@ class _SplashScreenState extends State<SplashScreen> {
                   letterSpacing: 8,
                 ),
               ).animate(delay: 500.ms).fadeIn(duration: 500.ms),
+
               const SizedBox(height: 48),
+
               const SizedBox(
                 width: 28,
                 height: 28,
@@ -112,5 +128,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
-
