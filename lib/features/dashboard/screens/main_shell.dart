@@ -21,6 +21,7 @@ import '../../parties/screens/smart_planner_screen.dart';
 import '../../gamification/screens/gamification_screen.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../visits/screens/start_visit_screen.dart';
+import '../../leave/screens/leave_screen.dart';
 
 // NOTE: PartyLedgerScreen requires a partyId argument — navigate to it
 // from PartiesScreen or OutstandingScreen as a drill-down, not from
@@ -392,6 +393,12 @@ class _MainShellState extends State<MainShell> {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRouter.attendanceHistory);
                   }),
+                  _drawerItem(Icons.event_busy_rounded, 'Leave', () {
+                    Navigator.pop(context);
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const LeaveScreen()));
+                  }),
+
                   const Divider(),
                   _drawerItem(Icons.person_outline, 'Profile', () {
                     Navigator.pop(context);
