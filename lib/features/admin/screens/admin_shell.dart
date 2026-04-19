@@ -26,6 +26,7 @@ import '../../parties/screens/admin_parties_screen.dart';
 import '../../stock/screens/distributor_stock_screen.dart';
 import 'ai_command_center_screen.dart';
 import 'admin_loyalty_screen.dart';
+import 'ai_chat_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -67,6 +68,7 @@ class _AdminShellState extends State<AdminShell> {
     DistributorStockScreen(), // 21  ← Sprint 7
     AiCommandCenterScreen(),
     AdminLoyaltyScreen(),
+    AiChatScreen(),
   ];
 
   @override
@@ -192,6 +194,7 @@ class _AdminShellState extends State<AdminShell> {
                       _subItem(Icons.store, 'Visit Analytics', 3),
                       _subItem(Icons.route, 'Beat Plans', 13),
                       _subItem(Icons.psychology, 'AI Command Center', 22),
+                      _subItem(Icons.auto_awesome, 'Pulse AI Assistant', 24),
                     ],
                   ),
 
