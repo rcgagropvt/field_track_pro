@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../router/app_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,10 +11,20 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeIn;
+
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _controller.forward();
     _navigate();
   }
 
@@ -23,7 +32,6 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    // Check if first launch
     final prefs = await SharedPreferences.getInstance();
     final hasSeenWelcome = prefs.getBool('has_seen_welcome') ?? false;
 
@@ -32,95 +40,83 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    final session = SupabaseService.client.auth.currentSession;
-
+    final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
       Navigator.pushReplacementNamed(context, AppRouter.login);
       return;
     }
 
     try {
-      final profile = await SupabaseService.getProfile();
-      final role = profile?['role'] ?? 'employee';
+      final profile = await SupabaseService.client
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
 
-      if (role == 'admin' || role == 'manager') {
-        Navigator.pushReplacementNamed(context, AppRouter.adminMain);
+      if (!mounted) return;
+
+      if (profile != null && profile['role'] == 'admin') {
+        Navigator.pushReplacementNamed(context, '/admin-main');
       } else {
-        Navigator.pushReplacementNamed(context, AppRouter.main);
+        Navigator.pushReplacementNamed(context, '/employee-main');
       }
-    } catch (e) {
-      Navigator.pushReplacementNamed(context, AppRouter.main);
+    } catch (_) {
+      if (mounted) Navigator.pushReplacementNamed(context, AppRouter.login);
     }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-        child: Center(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: FadeTransition(
+          opacity: _fadeIn,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // ── App logo ──────────────────────────────────────────────
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Image.asset(
-                  'assets/launcher_icon.png',
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.location_on_rounded,
-                    size: 64,
-                    color: AppColors.white,
-                  ),
-                ),
-              )
-                  .animate()
-                  .scale(duration: 600.ms, curve: Curves.elasticOut)
-                  .fadeIn(duration: 400.ms),
-
-              const SizedBox(height: 24),
-
-              // ── App name ──────────────────────────────────────────────
+              // Logo
+              Image.asset(
+                'assets/launcher_icon.png',
+                width: 100,
+                height: 100,
+              ),
+              const SizedBox(height: 20),
               const Text(
                 'Vartmaan Pulse',
                 style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.white,
-                  letterSpacing: -0.5,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF006A61),
+                  letterSpacing: 1.2,
                 ),
-              )
-                  .animate(delay: 300.ms)
-                  .fadeIn(duration: 500.ms)
-                  .slideY(begin: 0.3, end: 0),
-
-              const Text(
-                'PRO',
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Field Intelligence Platform',
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.accentLight,
-                  letterSpacing: 8,
+                  color: Colors.grey.shade500,
+                  letterSpacing: 0.5,
                 ),
-              ).animate(delay: 500.ms).fadeIn(duration: 500.ms),
-
-              const SizedBox(height: 48),
-
-              const SizedBox(
-                width: 28,
-                height: 28,
+              ),
+              const SizedBox(height: 40),
+              SizedBox(
+                width: 24,
+                height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppColors.white,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFF006A61),
+                  ),
                 ),
-              ).animate(delay: 800.ms).fadeIn(duration: 400.ms),
+              ),
             ],
           ),
         ),

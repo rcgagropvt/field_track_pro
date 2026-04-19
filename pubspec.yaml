@@ -60,6 +60,7 @@ dependencies:
   firebase_messaging: ^16.2.0
   google_generative_ai: ^0.4.7
   shared_preferences: ^2.5.5
+  table_calendar: ^3.2.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.1
@@ -88,6 +89,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/launcher_icon.png
 
   fonts:
     - family: Poppins

@@ -89,6 +89,43 @@ class _AttendanceCardState extends State<AttendanceCard> {
 
       await _loadAttendance();
       _showSnack('Checked in successfully!');
+      // Check if late
+      try {
+        final settings = await SupabaseService.client
+            .from('company_settings')
+            .select('setting_key, setting_value')
+            .inFilter('setting_key', [
+          'shift_start_time',
+          'grace_period_minutes',
+        ]);
+        final cfg = <String, dynamic>{};
+        for (final s in settings as List) {
+          cfg[s['setting_key']] = s['setting_value'];
+        }
+        final shiftStart = cfg['shift_start_time'] ?? '09:00';
+        final graceMins = (cfg['grace_period_minutes'] as num?)?.toInt() ?? 15;
+        final now = DateTime.now();
+        final shiftParts = shiftStart.toString().split(':');
+        final shiftHour = int.tryParse(shiftParts[0]) ?? 9;
+        final shiftMin =
+            shiftParts.length > 1 ? (int.tryParse(shiftParts[1]) ?? 0) : 0;
+        final graceEnd =
+            DateTime(now.year, now.month, now.day, shiftHour, shiftMin)
+                .add(Duration(minutes: graceMins));
+
+        if (now.isAfter(graceEnd)) {
+          final lateMins = now
+              .difference(
+                  DateTime(now.year, now.month, now.day, shiftHour, shiftMin))
+              .inMinutes;
+          await SupabaseService.client.from('attendance').update({
+            'is_late': true,
+            'late_minutes': lateMins,
+          }).eq('id', _todayAttendance!['id']);
+
+          _showSnack('You are $lateMins minutes late today', isError: true);
+        }
+      } catch (_) {}
 
       // Auto-start location tracking
       try {
@@ -163,8 +200,98 @@ class _AttendanceCardState extends State<AttendanceCard> {
         selfieUrl: selfieUrl,
       );
 
+      // ── Auto-calculate attendance type, late mark, overtime ──
+      try {
+        final settings = await SupabaseService.client
+            .from('company_settings')
+            .select('setting_key, setting_value')
+            .inFilter('setting_key', [
+          'shift_start_time',
+          'grace_period_minutes',
+          'half_day_threshold_hours',
+          'full_day_threshold_hours',
+          'overtime_start_after_hours',
+        ]);
+
+        final cfg = <String, dynamic>{};
+        for (final s in settings as List) {
+          cfg[s['setting_key']] = s['setting_value'];
+        }
+
+        final shiftStart = cfg['shift_start_time'] ?? '09:00';
+        final graceMins = (cfg['grace_period_minutes'] as num?)?.toInt() ?? 15;
+        final halfDayHours =
+            (cfg['half_day_threshold_hours'] as num?)?.toDouble() ?? 4.0;
+        final fullDayHours =
+            (cfg['full_day_threshold_hours'] as num?)?.toDouble() ?? 7.0;
+        final otAfterHours =
+            (cfg['overtime_start_after_hours'] as num?)?.toDouble() ?? 9.0;
+
+        // Reload attendance to get work_hours
+        final updated = await SupabaseService.client
+            .from('attendance')
+            .select()
+            .eq('id', _todayAttendance!['id'])
+            .single();
+
+        final checkInTime = DateTime.parse(updated['check_in_time']).toLocal();
+        final workHours = (updated['work_hours'] as num?)?.toDouble() ?? 0;
+
+        // Parse shift start
+        final shiftParts = shiftStart.toString().split(':');
+        final shiftHour = int.tryParse(shiftParts[0]) ?? 9;
+        final shiftMin =
+            shiftParts.length > 1 ? (int.tryParse(shiftParts[1]) ?? 0) : 0;
+        final shiftDateTime = DateTime(checkInTime.year, checkInTime.month,
+            checkInTime.day, shiftHour, shiftMin);
+        final graceEnd = shiftDateTime.add(Duration(minutes: graceMins));
+
+        // Determine late
+        final isLate = checkInTime.isAfter(graceEnd);
+        final lateMins =
+            isLate ? checkInTime.difference(shiftDateTime).inMinutes : 0;
+
+        // Determine attendance type
+        String attendanceType;
+        if (workHours < halfDayHours) {
+          attendanceType = 'absent'; // too few hours
+        } else if (workHours < fullDayHours) {
+          attendanceType = 'half_day';
+        } else {
+          attendanceType = 'full_day';
+        }
+
+        // Overtime
+        final overtimeHours =
+            workHours > otAfterHours ? workHours - otAfterHours : 0.0;
+
+        // Update attendance record
+        await SupabaseService.client.from('attendance').update({
+          'attendance_type': attendanceType,
+          'is_late': isLate,
+          'late_minutes': lateMins,
+          'overtime_hours': overtimeHours,
+        }).eq('id', _todayAttendance!['id']);
+      } catch (e) {
+        debugPrint('Auto-attendance calc error: $e');
+      }
+      // ── End auto-calculate ──
+
       await _loadAttendance();
-      _showSnack('Checked out! Good job today.');
+
+      // Build checkout message
+      final workHrs =
+          (_todayAttendance?['work_hours'] as num?)?.toDouble() ?? 0;
+      final type = _todayAttendance?['attendance_type'] ?? 'full_day';
+      String msg = 'Checked out! ';
+      if (type == 'half_day') {
+        msg += 'Half day recorded (${workHrs.toStringAsFixed(1)}h).';
+      } else if (type == 'absent') {
+        msg += 'Less than minimum hours — marked absent.';
+      } else {
+        msg += 'Full day (${workHrs.toStringAsFixed(1)}h). Good job!';
+      }
+      _showSnack(msg);
 
       // Auto-stop location tracking
       try {
@@ -184,8 +311,11 @@ class _AttendanceCardState extends State<AttendanceCard> {
           .from('notifications')
           .select('id, user_id, title, body, type')
           .eq('is_read', false)
-          .gte('created_at',
-              DateTime.now().subtract(const Duration(minutes: 2)).toIso8601String())
+          .gte(
+              'created_at',
+              DateTime.now()
+                  .subtract(const Duration(minutes: 2))
+                  .toIso8601String())
           .limit(10);
       for (final n in notifications as List) {
         await PushNotificationService.sendToUser(
