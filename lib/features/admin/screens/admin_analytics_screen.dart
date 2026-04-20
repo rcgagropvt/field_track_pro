@@ -47,6 +47,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
         _loading = false;
       });
     } catch (e) {
+      debugPrint('Analytics load error: $e');
       setState(() => _loading = false);
     }
   }
@@ -711,5 +712,3 @@ class _Insight {
   final Color color;
   _Insight(this.emoji, this.label, this.value, this.detail, this.color);
 }
-
-

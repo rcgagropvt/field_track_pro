@@ -1,21 +1,17 @@
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart'; // ← removed duplicate
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-
+import 'package:flutter/foundation.dart';
 
 class TrackingService {
   static const notificationChannelId = 'fieldtrack_tracking';
   static const notificationId = 888;
 
   static Future<void> initialize() async {
-    // ── Web guard — these plugins are Android/iOS only ────────────────────
-    if (kIsWeb) return;
-
     final service = FlutterBackgroundService();
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -37,7 +33,7 @@ class TrackingService {
         autoStart: false,
         isForegroundMode: true,
         notificationChannelId: notificationChannelId,
-        initialNotificationTitle: 'Vartmaan Pulse',
+        initialNotificationTitle: 'FieldTrack Pro',
         initialNotificationContent: 'Location tracking active',
         foregroundServiceNotificationId: notificationId,
         foregroundServiceTypes: [AndroidForegroundType.location],
@@ -47,31 +43,30 @@ class TrackingService {
   }
 
   static Future<void> startTracking() async {
-    if (kIsWeb) return;
     final service = FlutterBackgroundService();
     await service.startService();
   }
 
   static Future<void> stopTracking() async {
-    if (kIsWeb) return;
     final service = FlutterBackgroundService();
     service.invoke('stop');
   }
 
+  // ← FIXED: was always returning false
   static Future<bool> isRunning() async {
-    if (kIsWeb) return false;
     return await FlutterBackgroundService().isRunning();
   }
 }
-
 
 // Runs in a SEPARATE ISOLATE — no BuildContext, no UI, no SupabaseService
 @pragma('vm:entry-point')
 void _onServiceStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  await Hive.initFlutter();
+  // Initialize Hive before using it in this isolate
+  await Hive.initFlutter(); // ← ADDED
 
+  // Initialize Supabase in this isolate separately
   await Supabase.initialize(
     url: 'https://wruxzfvpnhzihmboggyu.supabase.co',
     anonKey:
@@ -79,7 +74,7 @@ void _onServiceStart(ServiceInstance service) async {
   );
 
   final supabase = Supabase.instance.client;
-  DateTime? lastSave;
+  DateTime? lastSave; // ← RENAMED: no leading _
 
   service.on('stop').listen((_) {
     service.stopSelf();
@@ -91,7 +86,7 @@ void _onServiceStart(ServiceInstance service) async {
       if (await service.isForegroundService()) {
         final now = DateTime.now();
         service.setForegroundNotificationInfo(
-          title: 'Vartmaan Pulse — Active',
+          title: 'FieldTrack Pro — Active',
           content:
               'Tracking: ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
         );

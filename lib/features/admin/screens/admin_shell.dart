@@ -29,6 +29,10 @@ import 'admin_loyalty_screen.dart';
 import 'ai_chat_screen.dart';
 import 'admin_leave_screen.dart';
 import 'admin_payroll_screen.dart';
+import 'admin_leave_settings_screen.dart';
+import 'admin_salary_settings_screen.dart';
+import 'admin_company_screen.dart';
+import 'admin_loan_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -73,6 +77,10 @@ class _AdminShellState extends State<AdminShell> {
     AiChatScreen(),
     AdminLeaveScreen(),
     AdminPayrollScreen(),
+    AdminLeaveSettingsScreen(),
+    AdminSalarySettingsScreen(),
+    AdminCompanyScreen(),
+    AdminLoanScreen(),
   ];
 
   @override
@@ -247,6 +255,12 @@ class _AdminShellState extends State<AdminShell> {
                       _subItem(Icons.track_changes, 'Set Targets', 14),
                       _subItem(Icons.event_busy, 'Leave Management', 25),
                       _subItem(Icons.account_balance_wallet, 'Payroll', 26),
+                      _subItem(Icons.event_note, 'Leave Settings',
+                          27), // use the correct index
+                      _subItem(Icons.monetization_on, 'Salary Settings',
+                          28), // next index
+                      _subItem(
+                          Icons.account_balance_wallet, 'Loans & Advances', 30),
                     ],
                   ),
 
@@ -258,6 +272,8 @@ class _AdminShellState extends State<AdminShell> {
                     children: [
                       _subItem(Icons.manage_accounts, 'My Profile', 9),
                       _subItem(Icons.settings, 'Settings', 10),
+                      _subItem(
+                          Icons.branding_watermark, 'Company Branding', 29),
                     ],
                   ),
 

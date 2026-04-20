@@ -24,6 +24,8 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
   final _addressCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _creditLimitCtrl = TextEditingController();
+  final _geofenceRadiusCtrl = TextEditingController();
+
   String _type = 'dealer';
   bool _isLoading = false;
   bool _useCurrentLocation = false;
@@ -74,6 +76,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
       'longitude': _lng,
       'is_active': true,
       'credit_limit': double.tryParse(_creditLimitCtrl.text) ?? 0,
+      'geofence_radius': double.tryParse(_geofenceRadiusCtrl.text.trim()),
     };
 
     try {
@@ -88,13 +91,15 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: const Text('Party saved offline — will sync when connected'),
+            content:
+                const Text('Party saved offline — will sync when connected'),
             backgroundColor: Colors.orange.shade700,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ));
-          Navigator.pop(context, {'offline': true, 'id': localId, ...partyData});
+          Navigator.pop(
+              context, {'offline': true, 'id': localId, ...partyData});
         }
       } else {
         await SupabaseService.client.from('parties').insert(partyData);
@@ -145,8 +150,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
           if (_isOffline)
             Container(
               margin: const EdgeInsets.only(right: 12),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
@@ -174,8 +178,8 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                   decoration: BoxDecoration(
                     color: Colors.orange.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: Colors.orange.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                   ),
                   child: const Row(children: [
                     Icon(Icons.cloud_off, size: 16, color: Colors.orange),
@@ -183,15 +187,13 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                     Expanded(
                       child: Text(
                         'You are offline. Party will be saved locally and synced automatically.',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.orange),
+                        style: TextStyle(fontSize: 12, color: Colors.orange),
                       ),
                     ),
                   ]),
                 ),
               const Text('Party Type',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -212,9 +214,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                     labelStyle: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: isSelected
-                          ? AppColors.white
-                          : AppColors.primary,
+                      color: isSelected ? AppColors.white : AppColors.primary,
                     ),
                     side: BorderSide.none,
                   );
@@ -225,8 +225,7 @@ class _AddPartyScreenState extends State<AddPartyScreen> {
                 controller: _nameCtrl,
                 label: 'Business Name *',
                 prefixIcon: Icons.store_rounded,
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Required' : null,
+                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               CustomTextField(

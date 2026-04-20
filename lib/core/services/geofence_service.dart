@@ -3,21 +3,30 @@ import 'package:flutter/foundation.dart';
 import 'supabase_service.dart';
 
 class GeofenceService {
-  /// Default radius in meters if party has no custom radius
   static const double defaultRadiusMeters = 200.0;
 
-  /// Check if the user's current position is within the allowed
-  /// radius of the party's registered location.
-  /// Returns a [GeofenceResult] with pass/fail and distance info.
+  /// Validate if user is within geofence of the party location
   static Future<GeofenceResult> validateCheckIn({
     required double userLat,
     required double userLng,
     required Map<String, dynamic> party,
   }) async {
+    // Check enforcement mode
+    final enforcement = await _getSetting('geofence_enforcement') ?? 'warn';
+    if (enforcement == 'off') {
+      return GeofenceResult(
+        allowed: true,
+        distance: 0,
+        radius: 0,
+        reason: 'Geofence disabled',
+        hasCoordinates: true,
+        enforcement: 'off',
+      );
+    }
+
     final partyLat = _toDouble(party['latitude']);
     final partyLng = _toDouble(party['longitude']);
 
-    // If party has no coordinates stored, allow check-in with warning
     if (partyLat == null || partyLng == null) {
       return GeofenceResult(
         allowed: true,
@@ -25,61 +34,94 @@ class GeofenceService {
         radius: defaultRadiusMeters,
         reason: 'Party location not set — geofence skipped',
         hasCoordinates: false,
+        enforcement: enforcement,
       );
     }
 
     final distance = Geolocator.distanceBetween(
-      userLat, userLng, partyLat, partyLng,
+      userLat,
+      userLng,
+      partyLat,
+      partyLng,
     );
 
-    // Party-level custom radius, else company default
-    final radius = _toDouble(party['geofence_radius']) ?? defaultRadiusMeters;
+    // Priority: party-level radius > company default > hardcoded 200m
+    final companyRadius = await getDefaultRadius();
+    final radius = _toDouble(party['geofence_radius']) ?? companyRadius;
 
-    final allowed = distance <= radius;
+    final withinFence = distance <= radius;
+
+    // In 'warn' mode, always allow but flag it
+    // In 'strict' mode, block if outside
+    final allowed = enforcement == 'strict' ? withinFence : true;
 
     return GeofenceResult(
       allowed: allowed,
       distance: distance,
       radius: radius,
-      reason: allowed
+      reason: withinFence
           ? 'Within geofence (${distance.toStringAsFixed(0)}m / ${radius.toStringAsFixed(0)}m)'
-          : 'Too far from party location (${distance.toStringAsFixed(0)}m away, limit ${radius.toStringAsFixed(0)}m)',
+          : 'Outside geofence (${distance.toStringAsFixed(0)}m away, limit ${radius.toStringAsFixed(0)}m)',
       hasCoordinates: true,
+      enforcement: enforcement,
+      isWithinFence: withinFence,
     );
   }
 
-  /// Admin: update the geofence radius for a specific party
-  static Future<void> updatePartyRadius(String partyId, double radiusMeters) async {
+  /// Update geofence radius for a specific party
+  static Future<void> updatePartyRadius(
+      String partyId, double radiusMeters) async {
     await SupabaseService.client.from('parties').update({
       'geofence_radius': radiusMeters,
-      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', partyId);
   }
 
-  /// Admin: update the default company-wide geofence radius (stored in settings)
+  /// Update the company-wide default geofence radius
   static Future<void> updateDefaultRadius(double radiusMeters) async {
-    await SupabaseService.client.from('app_settings').upsert({
-      'key': 'default_geofence_radius',
-      'value': radiusMeters.toString(),
-      'updated_at': DateTime.now().toIso8601String(),
-    });
+    await SupabaseService.client.from('company_settings').upsert({
+      'setting_key': 'default_geofence_radius',
+      'setting_value': radiusMeters.toString(),
+      'category': 'geofence',
+    }, onConflict: 'setting_key');
   }
 
-  /// Fetch the company default radius from settings table
+  /// Update enforcement mode: 'strict', 'warn', or 'off'
+  static Future<void> updateEnforcement(String mode) async {
+    await SupabaseService.client.from('company_settings').upsert({
+      'setting_key': 'geofence_enforcement',
+      'setting_value': mode,
+      'category': 'geofence',
+    }, onConflict: 'setting_key');
+  }
+
+  /// Fetch the company default radius
   static Future<double> getDefaultRadius() async {
     try {
-      final row = await SupabaseService.client
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'default_geofence_radius')
-          .maybeSingle();
-      if (row != null) {
-        return double.tryParse(row['value'].toString()) ?? defaultRadiusMeters;
-      }
+      final val = await _getSetting('default_geofence_radius');
+      if (val != null) return double.tryParse(val) ?? defaultRadiusMeters;
     } catch (e) {
       debugPrint('getDefaultRadius error: $e');
     }
     return defaultRadiusMeters;
+  }
+
+  /// Fetch enforcement mode
+  static Future<String> getEnforcement() async {
+    return await _getSetting('geofence_enforcement') ?? 'warn';
+  }
+
+  static Future<String?> _getSetting(String key) async {
+    try {
+      final row = await SupabaseService.client
+          .from('company_settings')
+          .select('setting_value')
+          .eq('setting_key', key)
+          .maybeSingle();
+      return row?['setting_value']?.toString();
+    } catch (e) {
+      debugPrint('GeofenceService._getSetting($key) error: $e');
+      return null;
+    }
   }
 
   static double? _toDouble(dynamic v) {
@@ -96,6 +138,8 @@ class GeofenceResult {
   final double radius;
   final String reason;
   final bool hasCoordinates;
+  final String enforcement;
+  final bool isWithinFence;
 
   GeofenceResult({
     required this.allowed,
@@ -103,5 +147,7 @@ class GeofenceResult {
     required this.radius,
     required this.reason,
     required this.hasCoordinates,
+    this.enforcement = 'warn',
+    this.isWithinFence = true,
   });
 }

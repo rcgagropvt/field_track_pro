@@ -16,6 +16,7 @@ import '../../../router/app_router.dart';
 import '../../orders/screens/order_booking_screen.dart';
 import '../../orders/screens/ai_suggested_order_screen.dart';
 import '../../../core/services/push_notification_service.dart';
+import '../../../core/services/auto_attendance_service.dart';
 
 class StartVisitScreen extends StatefulWidget {
   final Map<String, dynamic> party;
@@ -119,17 +120,18 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
       }
 
       // Geofence check
+      // Geofence check
       final geoResult = await GeofenceService.validateCheckIn(
         userLat: pos.latitude,
         userLng: pos.longitude,
         party: widget.party,
       );
 
+      // If not allowed (strict mode + outside fence), block
       if (!geoResult.allowed) {
         if (!mounted) return;
-        final override = await showDialog<bool>(
+        await showDialog(
           context: context,
-          barrierDismissible: false,
           builder: (_) => AlertDialog(
             title: const Row(children: [
               Icon(Icons.location_off, color: Colors.red, size: 24),
@@ -138,24 +140,43 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
             ]),
             content: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(geoResult.reason),
-                const SizedBox(height: 12),
                 Text(
                   'You are ${geoResult.distance.toStringAsFixed(0)}m away from ${widget.party['name']}.\n'
-                  'Allowed radius: ${geoResult.radius.toStringAsFixed(0)}m.',
+                  'Allowed radius: ${geoResult.radius.toStringAsFixed(0)}m.\n\n'
+                  'You must be within the geofence to start this visit.',
                   style: const TextStyle(fontSize: 13, color: Colors.grey),
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'This check-in will be flagged for admin review.',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.orange),
-                ),
               ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // If within fence but warn mode and outside, show warning but allow
+      if (!geoResult.isWithinFence && geoResult.enforcement == 'warn') {
+        if (!mounted) return;
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Row(children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+              SizedBox(width: 8),
+              Text('Outside Geofence'),
+            ]),
+            content: Text(
+              'You are ${geoResult.distance.toStringAsFixed(0)}m away from ${widget.party['name']}.\n'
+              'Allowed radius: ${geoResult.radius.toStringAsFixed(0)}m.\n\n'
+              'Do you want to continue anyway?',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             actions: [
               TextButton(
@@ -164,14 +185,12 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                child: const Text('Check In Anyway'),
+                child: const Text('Continue Anyway'),
               ),
             ],
           ),
         );
-
-        if (override != true) {
+        if (proceed != true) {
           setState(() => _isLoading = false);
           return;
         }
@@ -242,6 +261,20 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
         _status = 'in_progress';
         _checkInTime = DateTime.now();
       });
+
+      // Auto-attendance: ensure attendance exists and tracking is running
+      try {
+        final pos = await LocationService.getCurrentPosition();
+        if (pos != null) {
+          await AutoAttendanceService.ensureAttendanceAndTracking(
+            lat: pos.latitude,
+            lng: pos.longitude,
+            address: 'Auto — Visit to ${widget.party['name'] ?? ''}',
+          );
+        }
+      } catch (e) {
+        debugPrint('Auto-attendance on visit start: $e');
+      }
 
       _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() => _durationSeconds++);
@@ -388,23 +421,31 @@ class _StartVisitScreenState extends State<StartVisitScreen> {
           await SupabaseService.client.rpc('notify_rank_change',
               params: {'p_user_id': SupabaseService.userId});
         } catch (_) {}
+        // Update attendance with visit count
+        try {
+          await AutoAttendanceService.updateAttendanceFromVisits();
+        } catch (_) {}
       } catch (_) {}
 // Send push notifications for rank changes
-try {
-  final notifications = await SupabaseService.client
-      .from('notifications')
-      .select('user_id, title, body')
-      .eq('type', 'rank_change')
-      .eq('is_read', false)
-      .gte('created_at', DateTime.now().subtract(const Duration(minutes: 1)).toIso8601String());
-  for (final n in notifications as List) {
-    await PushNotificationService.sendToUser(
-      userId: n['user_id'],
-      title: n['title'],
-      body: n['body'],
-    );
-  }
-} catch (_) {}
+      try {
+        final notifications = await SupabaseService.client
+            .from('notifications')
+            .select('user_id, title, body')
+            .eq('type', 'rank_change')
+            .eq('is_read', false)
+            .gte(
+                'created_at',
+                DateTime.now()
+                    .subtract(const Duration(minutes: 1))
+                    .toIso8601String());
+        for (final n in notifications as List) {
+          await PushNotificationService.sendToUser(
+            userId: n['user_id'],
+            title: n['title'],
+            body: n['body'],
+          );
+        }
+      } catch (_) {}
 
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) Navigator.pop(context, true);

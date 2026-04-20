@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vartmaan_pulse/core/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_shell.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
@@ -60,6 +61,92 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
       _deptCtrl.text = data['department'] ?? '';
       _loading = false;
     });
+  }
+
+  Future<void> _uploadPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            if (_profile['avatar_url'] != null &&
+                _profile['avatar_url'].toString().isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Remove Photo',
+                    style: TextStyle(color: Colors.red)),
+                onTap: () => Navigator.pop(ctx, null),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null &&
+        _profile['avatar_url'] != null &&
+        _profile['avatar_url'].toString().isNotEmpty) {
+      // Remove photo
+      await SupabaseService.client
+          .from('profiles')
+          .update({'avatar_url': null}).eq('id', _profile['id']);
+      setState(() => _profile['avatar_url'] = null);
+      return;
+    }
+
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: source,
+      imageQuality: 80,
+      maxWidth: 512,
+      maxHeight: 512,
+    );
+    if (image == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final bytes = await image.readAsBytes();
+      final uid = SupabaseService.client.auth.currentUser?.id ?? '';
+      final fileName =
+          'avatars/$uid/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      await SupabaseService.client.storage
+          .from('uploads')
+          .uploadBinary(fileName, bytes);
+
+      final url =
+          SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
+
+      await SupabaseService.client
+          .from('profiles')
+          .update({'avatar_url': url}).eq('id', uid);
+
+      setState(() => _profile['avatar_url'] = url);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Photo updated!'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -151,21 +238,34 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
             CircleAvatar(
                 radius: 44,
                 backgroundColor: Colors.blue.shade700,
-                child: Text(
-                    (_profile['full_name'] ?? 'A').toString()[0].toUpperCase(),
-                    style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white))),
+                backgroundImage: _profile['avatar_url'] != null &&
+                        _profile['avatar_url'].toString().isNotEmpty
+                    ? NetworkImage(_profile['avatar_url'])
+                    : null,
+                child: _profile['avatar_url'] != null &&
+                        _profile['avatar_url'].toString().isNotEmpty
+                    ? null
+                    : Text(
+                        (_profile['full_name'] ?? 'A')
+                            .toString()[0]
+                            .toUpperCase(),
+                        style: const TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white))),
             Positioned(
                 bottom: 0,
                 right: 0,
-                child: Container(
+                child: GestureDetector(
+                  onTap: _uploadPhoto,
+                  child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: const BoxDecoration(
                         color: Colors.blue, shape: BoxShape.circle),
-                    child:
-                        const Icon(Icons.edit, size: 14, color: Colors.white))),
+                    child: const Icon(Icons.camera_alt,
+                        size: 18, color: Colors.white),
+                  ),
+                )),
           ])),
           const SizedBox(height: 6),
           Text(_profile['email'] ?? '',
@@ -383,5 +483,3 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
             BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)
           ]);
 }
-
-

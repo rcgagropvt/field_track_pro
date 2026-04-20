@@ -3,6 +3,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../router/app_router.dart';
 import 'edit_profile_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -60,6 +61,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _uploadPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            if (_profile?['avatar_url'] != null &&
+                _profile!['avatar_url'].toString().isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Remove Photo',
+                    style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _removePhoto();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: source,
+      imageQuality: 80,
+      maxWidth: 512,
+      maxHeight: 512,
+    );
+    if (image == null) return;
+
+    try {
+      final bytes = await image.readAsBytes();
+      final uid = SupabaseService.userId ?? '';
+      final fileName =
+          'avatars/$uid/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      await SupabaseService.client.storage
+          .from('uploads')
+          .uploadBinary(fileName, bytes);
+
+      final url =
+          SupabaseService.client.storage.from('uploads').getPublicUrl(fileName);
+
+      await SupabaseService.client
+          .from('profiles')
+          .update({'avatar_url': url}).eq('id', uid);
+
+      setState(() => _profile?['avatar_url'] = url);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Photo updated!'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload error: $e')));
+      }
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    try {
+      final uid = SupabaseService.userId ?? '';
+      await SupabaseService.client
+          .from('profiles')
+          .update({'avatar_url': null}).eq('id', uid);
+      setState(() => _profile?['avatar_url'] = null);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,18 +163,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   // Avatar
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: AppColors.primarySurface,
-                    child: Text(
-                      (_profile?['full_name'] ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
+                  // Avatar
+                  GestureDetector(
+                    onTap: _uploadPhoto,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: AppColors.primarySurface,
+                          backgroundImage: _profile?['avatar_url'] != null &&
+                                  _profile!['avatar_url'].toString().isNotEmpty
+                              ? NetworkImage(_profile!['avatar_url'])
+                              : null,
+                          child: _profile?['avatar_url'] != null &&
+                                  _profile!['avatar_url'].toString().isNotEmpty
+                              ? null
+                              : Text(
+                                  (_profile?['full_name'] ?? 'U')[0]
+                                      .toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt,
+                                size: 16, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+
                   const SizedBox(height: 16),
                   Text(
                     _profile?['full_name'] ?? '',
@@ -222,5 +344,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-
-

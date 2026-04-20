@@ -192,6 +192,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
     final addressCtrl = TextEditingController(text: _party['address'] ?? '');
     final emailCtrl = TextEditingController(text: _party['email'] ?? '');
     final gstCtrl = TextEditingController(text: _party['gst_number'] ?? '');
+    final radiusCtrl = TextEditingController(
+        text: (_party['geofence_radius'] as num?)?.toStringAsFixed(0) ?? '');
 
     await showModalBottomSheet(
       context: context,
@@ -230,6 +232,9 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
               _editField('Address', addressCtrl, Icons.location_on_outlined,
                   maxLines: 2),
               _editField('GST Number', gstCtrl, Icons.receipt_outlined),
+              _editField('Geofence Radius (meters)', radiusCtrl,
+                  Icons.my_location_rounded,
+                  type: TextInputType.number),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -243,6 +248,8 @@ class _PartyProfileScreenState extends State<PartyProfileScreen>
                       'address': addressCtrl.text.trim(),
                       'email': emailCtrl.text.trim(),
                       'gst_number': gstCtrl.text.trim(),
+                      'geofence_radius':
+                          double.tryParse(radiusCtrl.text.trim()),
                     }).eq('id', _party['id'] as String);
                     if (mounted) {
                       Navigator.pop(context);

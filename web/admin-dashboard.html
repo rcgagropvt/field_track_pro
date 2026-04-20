@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard — Vartmaan Pulse</title>
+<!-- Fonts -->
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Satoshi','sans-serif'] },
+      colors: { brand: '#006a61', 'brand-dark': '#00534c', 'brand-light': '#e0f0ee' }
+    }
+  }
+}
+</script>
+<!-- Leaflet CSS & JS for Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  body { font-family:'Satoshi',sans-serif; }
+  .nav-active { background-color:#e0f0ee; color:#006a61; font-weight:600; border-right:3px solid #006a61; }
+  #map { height:100%; min-height:500px; z-index: 10; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .skeleton { background:linear-gradient(90deg,#e2e8f0 25%,#cbd5e1 50%,#e2e8f0 75%); background-size:200% 100%; animation:shimmer 1.4s ease-in-out infinite; border-radius:6px; }
+</style>
+</head>
+<body class="bg-slate-100 text-gray-800 h-screen overflow-hidden">
+
+<!-- ═══ LOGIN ═══ -->
+<div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-white">
+  <div class="w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-lg p-8">
+    <div class="flex justify-center mb-6">
+      <div class="h-14 w-14 bg-brand text-white rounded-xl flex items-center justify-center">
+        <i data-lucide="activity" class="h-7 w-7"></i>
+      </div>
+    </div>
+    <h1 class="text-2xl font-bold text-center text-gray-900 mb-1">Vartmaan Pulse</h1>
+    <p class="text-sm text-center text-gray-500 mb-8">Admin Control Panel</p>
+    <form id="login-form" class="space-y-4" novalidate>
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input id="email" type="email" required autocomplete="email"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none text-sm"
+          placeholder="admin@example.com"/>
+      </div>
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input id="password" type="password" required autocomplete="current-password"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none text-sm"
+          placeholder="••••••••"/>
+      </div>
+      <div id="login-error" class="hidden text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-2"></div>
+      <button type="submit" id="login-btn"
+        class="w-full bg-brand hover:bg-brand-dark text-white font-semibold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+        Sign In
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ APP SHELL ═══ -->
+<div id="app-screen" class="hidden h-screen flex">
+
+  <!-- SIDEBAR -->
+  <aside class="w-60 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 z-20">
+    <div class="h-16 flex items-center px-5 border-b border-gray-200 gap-3">
+      <div class="h-8 w-8 bg-brand text-white rounded-lg flex items-center justify-center flex-shrink-0">
+        <i data-lucide="activity" class="h-4 w-4"></i>
+      </div>
+      <span class="text-base font-bold text-gray-900 leading-tight">Vartmaan Pulse</span>
+    </div>
+    <nav class="flex-1 pt-4 space-y-0.5">
+      <button onclick="switchView('overview')" id="nav-overview"
+        class="nav-item nav-active w-full flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+        <i data-lucide="layout-dashboard" class="h-4 w-4 flex-shrink-0"></i> Overview
+      </button>
+      <button onclick="switchView('employees')" id="nav-employees"
+        class="nav-item w-full flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+        <i data-lucide="users" class="h-4 w-4 flex-shrink-0"></i> Employees
+      </button>
+      <button onclick="switchView('map')" id="nav-map"
+        class="nav-item w-full flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+        <i data-lucide="map-pin" class="h-4 w-4 flex-shrink-0"></i> Live Map
+      </button>
+    </nav>
+    <div class="p-4 border-t border-gray-200 space-y-3">
+      <div class="flex items-center gap-3 px-1">
+        <div class="h-8 w-8 rounded-full bg-brand-light text-brand flex items-center justify-center font-bold text-xs flex-shrink-0">
+          AD
+        </div>
+        <div class="min-w-0">
+          <p id="user-email-display" class="text-xs font-semibold text-gray-800 truncate">Admin</p>
+          <p class="text-xs text-gray-400">Administrator</p>
+        </div>
+      </div>
+      <button onclick="doLogout()"
+        class="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <i data-lucide="log-out" class="h-3.5 w-3.5"></i> Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- TOPBAR -->
+    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 flex-shrink-0 z-10 sticky top-0">
+      <h2 id="page-title" class="text-lg font-bold text-gray-900">Overview</h2>
+      <div class="flex items-center gap-4">
+        <button onclick="refreshData()" title="Refresh data" class="text-gray-400 hover:text-brand transition-colors">
+          <i data-lucide="refresh-cw" id="refresh-icon" class="h-4 w-4"></i>
+        </button>
+        <div id="live-badge" class="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+          <span class="h-2 w-2 rounded-full bg-green-500 inline-block animate-pulse"></span> Live
+        </div>
+      </div>
+    </header>
+
+    <!-- PAGE CONTENT -->
+    <main class="flex-1 overflow-auto p-8">
+
+      <!-- ── OVERVIEW ── -->
+      <section id="view-overview" class="view space-y-6">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Field Reps</p>
+            <p id="kpi-total" class="text-3xl font-bold text-gray-900 tabular-nums">--</p>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Active Today</p>
+            <p id="kpi-active" class="text-3xl font-bold text-brand tabular-nums">--</p>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Pings (Today)</p>
+            <p id="kpi-pings" class="text-3xl font-bold text-gray-900 tabular-nums">--</p>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Status</p>
+            <p class="text-3xl font-bold text-green-600">Online</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <h3 class="text-sm font-semibold text-gray-800 mb-4">Location Pings — Last 24h</h3>
+            <div class="h-52"><canvas id="activityChart"></canvas></div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <h3 class="text-sm font-semibold text-gray-800 mb-4">Recent Activity</h3>
+            <div id="recent-list" class="space-y-3 text-xs text-gray-500">
+              <div class="skeleton h-4 w-full"></div>
+              <div class="skeleton h-4 w-4/5"></div>
+              <div class="skeleton h-4 w-3/5"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── EMPLOYEES ── -->
+      <section id="view-employees" class="view hidden">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-800">Field Representatives</h3>
+            <div class="relative">
+              <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400"></i>
+              <input id="emp-search" type="search" placeholder="Search by user ID..."
+                class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-brand w-56"/>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="bg-gray-50 text-xs text-gray-400 uppercase tracking-wider">
+                  <th class="px-6 py-3 font-medium">User</th>
+                  <th class="px-6 py-3 font-medium">Status</th>
+                  <th class="px-6 py-3 font-medium">Location</th>
+                  <th class="px-6 py-3 font-medium">Speed</th>
+                  <th class="px-6 py-3 font-medium">Last Seen</th>
+                  <th class="px-6 py-3 font-medium text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="emp-tbody" class="divide-y divide-gray-50">
+                <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 text-sm">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── MAP ── -->
+      <section id="view-map" class="view hidden h-[calc(100vh-10rem)]">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm h-full flex flex-col overflow-hidden relative">
+          <div class="px-6 py-3 border-b border-gray-100 flex justify-between items-center flex-shrink-0 z-20 bg-white">
+            <h3 class="text-sm font-semibold text-gray-800">Live Field Map</h3>
+            <div class="flex items-center gap-3 text-xs text-gray-500">
+              <span class="h-2.5 w-2.5 rounded-full bg-green-500 inline-block"></span> Active &lt; 15 min
+              <span class="h-2.5 w-2.5 rounded-full bg-orange-400 inline-block ml-2"></span> Older
+            </div>
+          </div>
+          <div class="flex-1 relative z-10" id="map"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+// ─── SUPABASE INIT ───
+// We use a custom variable name `db` to avoid collision with the global `supabase` created by the CDN script.
+const SUPA_URL = 'https://wruxzfvpnhzihmboggyu.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndydXh6ZnZwbmh6aWhtYm9nZ3l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NjQ1NTQsImV4cCI6MjA5MTA0MDU1NH0.PZQEJTgm_kTFcZLUAyIlqkwIFApOc4FXkPBua4F-tbE';
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ─── STATE ───
+let leafletMap = null;
+let leafletMarkers = {};
+let latestByUser = {};
+let chart = null;
+
+// ─── ICONS ───
+lucide.createIcons();
+
+// ─── BOOT: check existing session ───
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) bootApp(session.user);
+})();
+
+// ─── LOGIN FORM ───
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  const { data, error } = await db.auth.signInWithPassword({
+    email: document.getElementById('email').value.trim(),
+    password: document.getElementById('password').value
+  });
+
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  } else {
+    bootApp(data.user);
+  }
+});
+
+// ─── LOGOUT ───
+async function doLogout() {
+  await db.auth.signOut();
+  location.reload();
+}
+
+// ─── BOOT APP ───
+function bootApp(user) {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  const label = user.email || user.id.substring(0, 8);
+  document.getElementById('user-email-display').textContent = label;
+  
+  // Reinit icons after showing app
+  lucide.createIcons();
+  
+  loadData();
+  setupRealtime();
+}
+
+// ─── NAVIGATION ───
+function switchView(id) {
+  document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('nav-active'));
+  
+  document.getElementById('view-' + id).classList.remove('hidden');
+  document.getElementById('nav-' + id).classList.add('nav-active');
+  
+  const titles = { overview: 'Overview', employees: 'Employee Tracking', map: 'Live Map' };
+  document.getElementById('page-title').textContent = titles[id];
+  
+  if (id === 'map') setTimeout(initMap, 150);
+}
+
+// ─── LOAD DATA ───
+async function loadData() {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { data, error } = await db
+      .from('location_tracks')
+      .select('user_id, latitude, longitude, accuracy, speed, recorded_at')
+      .gte('recorded_at', today.toISOString())
+      .order('recorded_at', { ascending: false })
+      .limit(1000);
+
+    if (error) throw error;
+
+    latestByUser = {};
+    (data || []).forEach(row => {
+      if (!latestByUser[row.user_id]) latestByUser[row.user_id] = row;
+    });
+
+    const uniqueUsers = Object.keys(latestByUser).length;
+    const activeUsers = Object.values(latestByUser).filter(r => {
+      return (new Date() - new Date(r.recorded_at)) < 15 * 60 * 1000;
+    }).length;
+
+    // KPIs
+    document.getElementById('kpi-total').textContent = uniqueUsers;
+    document.getElementById('kpi-active').textContent = activeUsers;
+    document.getElementById('kpi-pings').textContent = (data || []).length;
+
+    // Recent activity
+    renderRecentActivity(data ? data.slice(0, 6) : []);
+
+    // Chart (bucket by hour)
+    renderChart(data || []);
+
+    // Employees table
+    renderEmployeesTable(latestByUser);
+
+    // Map markers (if map open)
+    if (leafletMap) updateMarkers();
+
+  } catch (err) {
+    console.error('loadData error:', err);
+    showDataError(err.message);
+  }
+}
+
+async function refreshData() {
+  const icon = document.getElementById('refresh-icon');
+  icon.style.transform = 'rotate(360deg)';
+  icon.style.transition = 'transform 0.6s';
+  await loadData();
+  setTimeout(() => { icon.style.transform = ''; icon.style.transition = ''; }, 700);
+}
+
+// ─── REALTIME ───
+function setupRealtime() {
+  db.channel('location_tracks_realtime')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'location_tracks' }, payload => {
+      const row = payload.new;
+      latestByUser[row.user_id] = row;
+      if (leafletMap) updateMarkers();
+      loadData();
+    })
+    .subscribe();
+}
+
+// ─── CHART ───
+function renderChart(rows) {
+  const buckets = {};
+  for (let h = 0; h < 24; h++) buckets[h] = 0;
+  rows.forEach(r => {
+    const hr = new Date(r.recorded_at).getHours();
+    buckets[hr] = (buckets[hr] || 0) + 1;
+  });
+  const labels = Object.keys(buckets).map(h => h + ':00');
+  const vals = Object.values(buckets);
+
+  const ctx = document.getElementById('activityChart');
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{ label: 'Pings', data: vals, borderColor: '#006a61', backgroundColor: 'rgba(0,106,97,0.08)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 12 } }
+      }
+    }
+  });
+}
+
+// ─── RECENT ACTIVITY ───
+function renderRecentActivity(rows) {
+  const el = document.getElementById('recent-list');
+  if (!rows.length) { el.innerHTML = '<p class="text-gray-400 text-xs">No activity today.</p>'; return; }
+  el.innerHTML = rows.map(r => {
+    const t = new Date(r.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `<div class="flex gap-2 items-start">
+      <span class="h-1.5 w-1.5 rounded-full bg-brand mt-1.5 flex-shrink-0"></span>
+      <div><p class="text-gray-700 font-medium">User <code class="text-xs bg-gray-100 px-1 rounded">${r.user_id.substring(0,8)}</code></p>
+      <p class="text-gray-400">${t}</p></div>
+    </div>`;
+  }).join('');
+}
+
+// ─── EMPLOYEES TABLE ───
+function renderEmployeesTable(byUser) {
+  const tbody = document.getElementById('emp-tbody');
+  const rows = Object.values(byUser);
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 text-sm">No tracking data today.</td></tr>'; return; }
+
+  tbody.innerHTML = rows.map(r => {
+    const minsAgo = Math.floor((new Date() - new Date(r.recorded_at)) / 60000);
+    const badge = minsAgo < 15
+      ? '<span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Active</span>'
+      : `<span class="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">${minsAgo}m ago</span>`;
+    const speed = r.speed ? (r.speed * 3.6).toFixed(1) + ' km/h' : '0 km/h';
+    const uid = r.user_id.substring(0, 8);
+    return `<tr class="hover:bg-gray-50 transition-colors">
+      <td class="px-6 py-3">
+        <div class="flex items-center gap-3">
+          <div class="h-7 w-7 rounded-full bg-brand-light text-brand flex items-center justify-center text-xs font-bold flex-shrink-0">${uid.substring(0,2).toUpperCase()}</div>
+          <code class="text-xs text-gray-600">${uid}…</code>
+        </div>
+      </td>
+      <td class="px-6 py-3">${badge}</td>
+      <td class="px-6 py-3 text-xs font-mono text-gray-500">${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}</td>
+      <td class="px-6 py-3 text-xs text-gray-500">${speed}</td>
+      <td class="px-6 py-3 text-xs text-gray-500">${new Date(r.recorded_at).toLocaleTimeString()}</td>
+      <td class="px-6 py-3 text-right"><button onclick="viewOnMap('${r.user_id}')" class="text-xs text-brand hover:text-brand-dark font-medium flex items-center gap-1 ml-auto"><i data-lucide="map-pin" class="h-3 w-3"></i> View</button></td>
+    </tr>`;
+  }).join('');
+
+  lucide.createIcons();
+
+  // Employee search filter
+  document.getElementById('emp-search').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#emp-tbody tr').forEach(tr => {
+      tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+}
+
+// ─── MAP ───
+function initMap() {
+  if (!leafletMap) {
+    leafletMap = L.map('map').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors © CARTO',
+      maxZoom: 19
+    }).addTo(leafletMap);
+  }
+  leafletMap.invalidateSize();
+  updateMarkers();
+}
+
+function updateMarkers() {
+  const bounds = [];
+  Object.values(latestByUser).forEach(r => {
+    const minsAgo = Math.floor((new Date() - new Date(r.recorded_at)) / 60000);
+    const color = minsAgo < 15 ? '#10b981' : '#f59e0b';
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
+      iconSize: [14, 14], iconAnchor: [7, 7]
+    });
+    const popup = `<div style="font-family:Satoshi,sans-serif;font-size:13px;line-height:1.6">
+      <strong>User:</strong> ${r.user_id.substring(0,8)}…<br>
+      <strong>Speed:</strong> ${r.speed ? (r.speed * 3.6).toFixed(1) : 0} km/h<br>
+      <strong>Accuracy:</strong> ${r.accuracy ? Math.round(r.accuracy) + 'm' : 'N/A'}<br>
+      <strong>Ping:</strong> ${new Date(r.recorded_at).toLocaleTimeString()}
+    </div>`;
+
+    if (leafletMarkers[r.user_id]) {
+      leafletMarkers[r.user_id].setLatLng([r.latitude, r.longitude]);
+    } else {
+      leafletMarkers[r.user_id] = L.marker([r.latitude, r.longitude], { icon }).addTo(leafletMap);
+      leafletMarkers[r.user_id].bindPopup(popup);
+    }
+    bounds.push([r.latitude, r.longitude]);
+  });
+  if (bounds.length > 0) leafletMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+}
+
+function viewOnMap(userId) {
+  switchView('map');
+  setTimeout(() => {
+    const m = leafletMarkers[userId];
+    if (m) { leafletMap.setView(m.getLatLng(), 14); m.openPopup(); }
+  }, 300);
+}
+
+function showDataError(msg) {
+  document.getElementById('kpi-total').textContent = 'Err';
+  document.getElementById('kpi-active').textContent = 'Err';
+  document.getElementById('kpi-pings').textContent = 'Err';
+  document.getElementById('recent-list').innerHTML = `<p class="text-red-500 text-xs">${msg}</p>`;
+}
+</script>
+</body>
+</html>

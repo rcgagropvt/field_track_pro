@@ -23,6 +23,7 @@ import '../../../core/services/supabase_service.dart';
 import '../../visits/screens/start_visit_screen.dart';
 import '../../leave/screens/leave_screen.dart';
 import '../../payslip/screens/employee_payslip_screen.dart';
+import '../../selfservice/screens/employee_self_service_screen.dart';
 
 // NOTE: PartyLedgerScreen requires a partyId argument — navigate to it
 // from PartiesScreen or OutstandingScreen as a drill-down, not from
@@ -405,6 +406,13 @@ class _MainShellState extends State<MainShell> {
                         context,
                         MaterialPageRoute(
                             builder: (_) => const EmployeePayslipScreen()));
+                  }),
+                  _drawerItem(Icons.person_pin_rounded, 'Self Service', () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const EmployeeSelfServiceScreen()));
                   }),
 
                   const Divider(),
